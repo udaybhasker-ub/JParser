@@ -1,0 +1,5 @@
+declare module parser
+{
+	export {};
+
+}

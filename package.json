@@ -1,0 +1,31 @@
+{
+    "name": "JParser",
+    "version": "1.0.0",
+    "description": "",
+    "scripts": {
+        "build": "webpack"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/webpack": "^4.4.32",
+        "clean-webpack-plugin": "^3.0.0",
+        "copy-webpack-plugin": "^5.0.3",
+        "declaration-bundler-webpack-plugin": "^1.0.3",
+        "fs": "^0.0.1-security",
+        "ts-loader": "^6.0.1",
+        "typedoc": "^0.14.2",
+        "typedoc-webpack-plugin": "^1.1.4",
+        "typescript": "^4.5.2",
+        "uglifyjs-webpack-plugin": "^2.1.3",
+        "webpack": "^4.32.2",
+        "webpack-cli": "^3.3.2",
+        "webpack-dev-server": "^4.5.0",
+        "wepack-cli": "0.0.1-security"
+    },
+    "dependencies": {
+        "java-parser": "^2.0.0",
+        "lodash": "^4.17.21"
+    }
+}

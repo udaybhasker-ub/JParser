@@ -755,10 +755,8 @@ __webpack_require__.r(__webpack_exports__);
 function defaultVisit(ctx, param) {
     var childrenNames = Object(_utils_utils__WEBPACK_IMPORTED_MODULE_0__["keys"])(ctx);
     var childrenNamesLength = childrenNames.length;
-    var names = [];
     for (var i = 0; i < childrenNamesLength; i++) {
         var currChildName = childrenNames[i];
-        //console.log("n=", currChildName);
         var currChildArray = ctx[currChildName];
         var currChildArrayLength = currChildArray.length;
         for (var j = 0; j < currChildArrayLength; j++) {
@@ -766,19 +764,14 @@ function defaultVisit(ctx, param) {
             // distinction between Tokens Children and CstNode children
             if (currChild.tokenTypeIdx === undefined) {
                 if (currChild.fullName !== undefined) {
-                    names.push(currChild.fullName);
                     this[currChild.fullName](currChild.children, param);
                 }
                 else {
-                    names.push(currChild.name);
                     this[currChild.name](currChild.children, param);
                 }
-            } else {
-                this[currChild.tokenType.name] && this[currChild.tokenType.name](currChild, param);
             }
         }
     }
-    if (this.$fieldNames) this.$fieldNames(names);
     // defaultVisit does not support generic out param
     return undefined;
 }
@@ -804,6 +797,9 @@ function createBaseSemanticVisitorConstructor(grammarName, ruleNames) {
                 return this[cstNode.fullName](cstNode.children, param);
             }
             else {
+                if (cstNode.tokenTypeIdx) {
+                    return this[cstNode.tokenType.name](cstNode, param);
+                }
                 return this[cstNode.name](cstNode.children, param);
             }
         },
@@ -21459,66 +21455,63 @@ var __assign = (this && this.__assign) || function () {
 exports.__esModule = true;
 exports.DynamicCollector = void 0;
 var JP = __webpack_require__(/*! java-parser */ "./node_modules/java-parser/src/index.js");
+var JPLExpression_1 = __webpack_require__(/*! ./models/JPLExpression */ "./src/models/JPLExpression.ts");
 var DynamicCollector = (function (_super) {
     __extends(DynamicCollector, _super);
-    function DynamicCollector(collectorMethodList, parsedResult, conditionalBlock) {
+    function DynamicCollector(collectorMethodList, parsedResult, finalResults, conditionalBlock) {
         var _this = _super.call(this) || this;
         _this.collectorMethodList = [];
         _this.results = {};
+        _this.finalResults = [];
+        _this.matchedConditionCount = 0;
         _this.validateVisitor();
         _this.collectorMethodList = collectorMethodList;
         _this.collectorName = collectorMethodList[0];
         var lastItem = collectorMethodList[collectorMethodList.length - 1];
         _this.parsedResult = parsedResult;
+        if (!collectorMethodList) {
+            return _this;
+        }
         _this[_this.collectorName] = function (ctx, parent) {
-            console.log((_this.parent ? _this.parent.name : '') + '---' + _this.collectorName);
-            if (!_this.results[_this.collectorName])
-                _this.results[_this.collectorName] = [];
-            if (!_this.results['final'])
-                _this.results['final'] = [];
-            if (collectorMethodList.length > 1) {
-                var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult);
+            if (conditionalBlock ? conditionalBlock.steps.length > 1 : collectorMethodList.length > 1) {
+                var newCondBlock = void 0;
+                if (conditionalBlock && conditionalBlock.steps.length > 1) {
+                    newCondBlock = __assign({}, conditionalBlock);
+                    newCondBlock.steps = newCondBlock.steps.slice(1);
+                }
+                var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult, finalResults, newCondBlock);
                 ctx.name = _this.collectorName;
-                if (_this.parsedResult && _this.collectorName === _this.parsedResult.guiding.steps.last()) {
+                if (_this.parsedResult && _this.collectorName === _this.parsedResult.returnAt) {
                     subColl.parent = ctx;
+                    finalResults['counters'] = finalResults['counters'] || {};
+                    var counter = finalResults['counters'][_this.collectorName] || 0;
+                    counter++;
+                    finalResults['counters'][_this.collectorName] = counter;
+                    subColl.parent.index = counter;
                 }
                 else {
                     subColl.parent = _this.parent;
                 }
-                var newResults = subColl.visit(ctx[collectorMethodList[1]]);
-                if (!_this.results[lastItem])
-                    _this.results[lastItem] = [];
-                if (parent) {
-                    console.log();
-                }
-                newResults[lastItem] && newResults[lastItem].forEach(function (element) {
-                    _this.results[lastItem].push(element);
-                });
-                newResults['final'] && newResults['final'].forEach(function (element) {
-                    _this.results['final'].push(element);
-                });
+                subColl.visit(ctx[collectorMethodList[1]]);
             }
             else if (lastItem === _this.collectorName) {
-                var matchCount_1 = 0;
+                var matchC = 0;
                 var blockConditions = [];
                 if (conditionalBlock) {
                     blockConditions.push(conditionalBlock);
                 }
-                else if (parsedResult) {
+                else if (parsedResult && parsedResult.condition.expression) {
                     blockConditions = parsedResult.condition.expression.blocks;
                 }
-                blockConditions.forEach(function (block) {
+                blockConditions.forEach(function (block, index) {
                     if (block.steps.length > 1) {
                         var newBlock = __assign({}, block);
-                        newBlock.steps = block.steps.slice(1);
-                        var cndStepColl = new DynamicCollector(newBlock.steps, parsedResult, newBlock);
+                        var cndStepColl = new DynamicCollector(block.steps, parsedResult, finalResults, newBlock);
                         cndStepColl.parent = _this.parent;
-                        var subCtx = ctx[block.steps[0]];
-                        subCtx.name = _this.collectorName;
-                        var res = cndStepColl.visit(subCtx);
+                        var newCtx = ctx[block.steps[0]];
+                        var res = cndStepColl.visit(newCtx);
                         if (res && res[block.steps[1]] && res[block.steps[1]][0] && res[block.steps[1]][0][block.key] === block.value) {
-                            console.log('matched:', block.key, block.value);
-                            matchCount_1++;
+                            _this.matchedConditionCount++;
                         }
                     }
                     else {
@@ -21530,81 +21523,66 @@ var DynamicCollector = (function (_super) {
                             node = ctx[block.steps[0]][0];
                         }
                         if (node[block.key] == block.value) {
-                            matchCount_1++;
-                            console.log('matched:', block.key, block.value);
+                            _this.matchedConditionCount++;
                         }
-                        else
-                            return;
                     }
                 });
-                if (blockConditions.length === matchCount_1) {
-                    _this.results[_this.collectorName].push(ctx);
-                    if (_this.collectorName === parsedResult.condition.evaluateAt && parsedResult.condition.expression.blocks.length === matchCount_1) {
-                        console.log("collecting:");
-                        _this.results['final'].push(_this.parent);
+                if (_this.matchedConditionCount === blockConditions.length) {
+                    var continueToFilter = false;
+                    if (conditionalBlock) {
+                        continueToFilter = (_this.collectorName === conditionalBlock.steps[conditionalBlock.steps.length - 1]);
+                    }
+                    else if (parsedResult.condition && parsedResult.condition.steps.length) {
+                        continueToFilter = (_this.collectorName === parsedResult.condition.evaluateAt);
+                    }
+                    else {
+                        continueToFilter = (_this.collectorName === parsedResult.returnAt);
+                    }
+                    if (continueToFilter) {
+                        var finals_1 = {};
+                        if (parsedResult.trailing && parsedResult.trailing.steps.length) {
+                            var trailingStepColl = new DynamicCollector(parsedResult.trailing.steps.splice(1), parsedResult, finalResults);
+                            trailingStepColl.parent = _this.parent;
+                            trailingStepColl.visit(_this.parent[parsedResult.trailing.steps[0]]);
+                        }
+                        if (parsedResult.trailing.outputs) {
+                            parsedResult.trailing.outputs.forEach(function (output, index) {
+                                if (output instanceof JPLExpression_1["default"]) {
+                                    var outputsColl = new DynamicCollector(output.allStepsToCondition.slice(1), output, finalResults);
+                                    outputsColl.parent = _this.parent;
+                                    var outputresults = outputsColl.visit(_this.parent[output.allStepsToCondition[0]]);
+                                }
+                                else {
+                                    var parts = output.split('#');
+                                    finals_1[parts[1] ? parts[1] : output] = ctx[parts[0]];
+                                }
+                            });
+                        }
+                        if (finals_1 && Object.keys(finals_1).length) {
+                            if (!finalResults['final'])
+                                finalResults['final'] = [];
+                            var index_1 = -1;
+                            finalResults['final'].forEach(function (item, ind) {
+                                if (item.index === _this.parent.index)
+                                    return index_1 = ind;
+                            });
+                            if (index_1 > -1) {
+                                finalResults['final'][index_1] = __assign(__assign({}, finalResults['final'][index_1]), finals_1);
+                            }
+                            else {
+                                finals_1['index'] = _this.parent.index;
+                                finalResults['final'].push(finals_1);
+                            }
+                        }
                     }
                 }
-                console.log('--return AT:' + parsedResult.returnAt);
             }
         };
         return _this;
     }
-    DynamicCollector.prototype.visit = function (ctx, parent) {
-        _super.prototype.visit.call(this, ctx, parent);
-        return this.results;
-    };
     return DynamicCollector;
 }(JP.BaseJavaCstVisitorWithDefaults));
 exports.DynamicCollector = DynamicCollector;
-
-
-/***/ }),
-
-/***/ "./src/JPL.ts":
-/*!********************!*\
-  !*** ./src/JPL.ts ***!
-  \********************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-exports.__esModule = true;
-var JPLExpression_1 = __webpack_require__(/*! ./models/JPLExpression */ "./src/models/JPLExpression.ts");
-exports["default"] = {
-    parsed: {
-        guiding: { steps: [] },
-        conditional: {
-            steps: [],
-            expression: {
-                blocks: [
-                    {
-                        step: {},
-                        key: '',
-                        value: ''
-                    }
-                ],
-                operator: ''
-            }
-        },
-        trailing: {
-            steps: [],
-            output: []
-        }
-    },
-    parseQuery: function (query) {
-        var result = new JPLExpression_1["default"](query);
-        return result;
-    },
-    parseCondition: function (condition) {
-        var regex2 = /((\w+)\(@.(\w+)="([\w|@]+)"\))(\s+[&|\|]{2}\s+)?/gi;
-        var myRegexp2 = new RegExp(regex2, 'gi');
-        myRegexp2.lastIndex = 0;
-        var match;
-        while (match = myRegexp2.exec(condition))
-            console.log(match);
-    }
-};
 
 
 /***/ }),
@@ -21646,22 +21624,22 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
 exports.__esModule = true;
 var JP = __webpack_require__(/*! java-parser */ "./node_modules/java-parser/src/index.js");
 var TestJavaStrings_1 = __webpack_require__(/*! ./TestJavaStrings */ "./src/TestJavaStrings.ts");
-var JPL_1 = __webpack_require__(/*! ./JPL */ "./src/JPL.ts");
 var DynamicCollector_1 = __webpack_require__(/*! ./DynamicCollector */ "./src/DynamicCollector.ts");
 var Utils_1 = __webpack_require__(/*! ./Utils */ "./src/Utils.ts");
+var JPLExpression_1 = __webpack_require__(/*! ./models/JPLExpression */ "./src/models/JPLExpression.ts");
 var JParser = (function () {
     function JParser() {
     }
     JParser.prototype.parseTest = function () {
         var cst = JP.parse(TestJavaStrings_1["default"].CONTROLLER);
-        var query = "/fieldDeclaration[/fieldModifier/annotation?{/At(image=\"@\") && /typeName/Identifier(image=\"Autowired\")}]:[/unannType/unannClassType/Identifier:[image, tokenType], /variableDeclaratorList/variableDeclaratorId/Identifier:[image]]";
-        var result = JPL_1["default"].parseQuery(query);
-        Utils_1["default"]._console(result);
-        Utils_1["default"].printToFile(result);
+        var query = "/fieldDeclaration[/fieldModifier/annotation?{/At(image=\"@\") && /typeName/Identifier(image=\"Autowired\")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]";
+        var result = new JPLExpression_1["default"](query);
+        Utils_1["default"].printToFile(result, 'query');
         var allSteps = __spreadArray(__spreadArray(__spreadArray([], __read(result.guiding.steps), false), __read(result.condition.steps), false), __read(result.trailing.steps), false);
-        var collector = new DynamicCollector_1.DynamicCollector(allSteps, result);
+        var finalResults = [];
+        var collector = new DynamicCollector_1.DynamicCollector(allSteps, result, finalResults);
         collector.visit(cst);
-        Utils_1["default"].printToFile(collector.results['final']);
+        Utils_1["default"].printToFile(finalResults['final'], 'final');
     };
     return JParser;
 }());
@@ -21696,6 +21674,31 @@ exports["default"] = {
 
 "use strict";
 
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 exports.__esModule = true;
 var fs = __webpack_require__(/*! fs */ "fs");
 exports["default"] = {
@@ -21711,8 +21714,16 @@ exports["default"] = {
     },
     printToFile: function (data, filePrefix) {
         var str = JSON.stringify(data, this.jsonFilter, 2);
-        var fname = filePrefix ? filePrefix : (new Date().getTime());
-        fs.writeFileSync('result_' + fname + '.json', str);
+        var fname = filePrefix ? filePrefix : '_test';
+        fs.writeFileSync('devTesting/result_' + fname + '.json', str);
+    },
+    mergeArrays: function (arr1, arr2) {
+        if (!arr1)
+            arr1 = [];
+        if (!arr2)
+            arr2 = [];
+        arr1 = __spreadArray(__spreadArray([], __read(arr1), false), __read(arr2), false);
+        return arr1;
     }
 };
 
@@ -21734,6 +21745,8 @@ var ConditionalExpression_1 = __webpack_require__(/*! ./ConditionalExpression */
 var Condition = (function () {
     function Condition(rawString, stepsString) {
         this.steps = [];
+        if (!(rawString && stepsString))
+            return null;
         this.rawString = rawString;
         if (stepsString)
             this.steps = stepsString.match(/[^/]+/g);
@@ -21771,6 +21784,7 @@ exports["default"] = Condition;
 exports.__esModule = true;
 var ConditionalBlock = (function () {
     function ConditionalBlock(steps, key, value) {
+        this.isMatched = false;
         this.steps = steps;
         this.key = key;
         this.value = value;
@@ -21795,6 +21809,7 @@ exports.__esModule = true;
 var ConditionalExpression = (function () {
     function ConditionalExpression() {
         this.blocks = [];
+        this.currentEvalCount = 0;
         this.blocks = [];
     }
     return ConditionalExpression;
@@ -21892,10 +21907,15 @@ var TrailingExpression = (function () {
         var _this = this;
         this.steps = [];
         this.outputs = [];
-        this.rawString = steps || '' + filterString || '';
+        this.rawString = (steps ? steps : '') + filterString ? filterString : '';
         if (filterString) {
-            var match = /(.*)\s?,\s?(.*)/g.exec(filterString);
-            var subArray = match && match.slice(1);
+            var splitOutputs = /(?<![\/#\{\[\]\w])([\w#]+)(?=[\|\n])(?![\]])/g;
+            var splitComma = /(.*?)(?=,|$|\n)/g;
+            var subArray = [];
+            subArray = this.execRegex(filterString, splitOutputs);
+            if (subArray.length < 1) {
+                subArray = this.execRegex(filterString, splitComma);
+            }
             (subArray || [filterString]).forEach(function (element) {
                 var outExpression = new JPLExpression_1["default"](element);
                 if (outExpression.status && outExpression.status.isFilter) {
@@ -21906,6 +21926,18 @@ var TrailingExpression = (function () {
             });
         }
     }
+    TrailingExpression.prototype.execRegex = function (string, pattern) {
+        var m, regex = new RegExp(pattern);
+        regex.lastIndex = 0;
+        var subArray = [];
+        while ((m = regex.exec(string)) !== null) {
+            if (m.index === regex.lastIndex)
+                regex.lastIndex++;
+            if (m[0] && m[0].trim().length)
+                subArray.push(m[0].trim());
+        }
+        return subArray;
+    };
     return TrailingExpression;
 }());
 exports["default"] = TrailingExpression;

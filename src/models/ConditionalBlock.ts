@@ -5,6 +5,7 @@ export default class ConditionalBlock implements IConditionalBlock {
     steps: string[];
     key: string;
     value: string;
+    isMatched: boolean = false;
 
     constructor(steps, key, value) {
         this.steps = steps;

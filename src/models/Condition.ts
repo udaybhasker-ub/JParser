@@ -10,6 +10,8 @@ export default class Condition implements ICondition {
     evaluateAt: string;
 
     constructor(rawString: string, stepsString) {
+        if (!(rawString && stepsString)) return null;
+
         this.rawString = rawString;
         if (stepsString) this.steps = stepsString.match(/[^/]+/g);
         this.parse();

@@ -1,7 +1,6 @@
 import * as JP from "java-parser";
-import { isArray } from "lodash";
+import { keys } from "lodash";
 import _ = require("lodash");
-import { ICondition } from "./models/JPL/@types/ICondition";
 import { IConditionalBlock } from "./models/JPL/@types/IConditionalBlock";
 import { IExpression } from "./models/JPL/@types/IExpression";
 import JPLExpression from "./models/JPLExpression";
@@ -13,73 +12,67 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
     results = {};
     parent;
     parsedResult;
+    matchedConditionCount;
+    finalResults = [];
 
-    constructor(collectorMethodList: string[], parsedResult?: IExpression, conditionalBlock?: IConditionalBlock) {
+    constructor(collectorMethodList: string[], parsedResult: IExpression, finalResults: any[], conditionalBlock?: IConditionalBlock) {
         super();
+        this.matchedConditionCount = 0;
         this.validateVisitor();
         this.collectorMethodList = collectorMethodList;
         this.collectorName = collectorMethodList[0];
         let lastItem = collectorMethodList[collectorMethodList.length - 1];
         this.parsedResult = parsedResult;
-        //console.log(collectorMethodList);
+        if (!collectorMethodList) {
+            return;
+        }
         this[this.collectorName] = (ctx, parent?) => {
-            console.log((this.parent ? this.parent.name : '') + '---' + this.collectorName);
+            /*if (!finalResults[this.collectorName])
+                finalResults[this.collectorName] = [];*/
 
-            if (!this.results[this.collectorName])
-                this.results[this.collectorName] = [];
 
-            if (!this.results['final'])
-                this.results['final'] = [];
-
-            if (collectorMethodList.length > 1) {
-                var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult);
+            if (conditionalBlock ? conditionalBlock.steps.length > 1 : collectorMethodList.length > 1) {
+                let newCondBlock;
+                if (conditionalBlock && conditionalBlock.steps.length > 1) {
+                    newCondBlock = { ...conditionalBlock };
+                    newCondBlock.steps = newCondBlock.steps.slice(1);
+                }
+                var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult, finalResults, newCondBlock);
                 ctx.name = this.collectorName;
 
-                if (this.parsedResult && this.collectorName === this.parsedResult.guiding.steps.last()) {
+                if (this.parsedResult && this.collectorName === this.parsedResult.returnAt) {
                     subColl.parent = ctx;
+                    finalResults['counters'] = finalResults['counters'] || {};
+                    let counter = finalResults['counters'][this.collectorName] || 0;
+                    counter++;
+                    finalResults['counters'][this.collectorName] = counter;
+                    subColl.parent.index = counter;
                 } else {
                     subColl.parent = this.parent;
                 }
 
-                let newResults = subColl.visit(ctx[collectorMethodList[1]]);
-                if (!this.results[lastItem]) this.results[lastItem] = [];
-                if (parent) {
-                    console.log();
-                }
-                newResults[lastItem] && newResults[lastItem].forEach(element => {
-                    this.results[lastItem].push(element);
-                });
-                newResults['final'] && newResults['final'].forEach(element => {
-                    this.results['final'].push(element);
-                });
-                //console.log(this.results);
-                //console.dir(JSON.stringify(this.results, Utils.jsonFilter, 2));
+                subColl.visit(ctx[collectorMethodList[1]]);
             } else if (lastItem === this.collectorName) {
-                let matchCount = 0;
+                var matchC = 0;
                 let blockConditions: IConditionalBlock[] = [];
 
                 if (conditionalBlock) {
                     blockConditions.push(conditionalBlock);
-                } else if (parsedResult) {
+                } else if (parsedResult && parsedResult.condition.expression) {
                     blockConditions = parsedResult.condition.expression.blocks
                 }
-                blockConditions.forEach((block: IConditionalBlock) => {
+                blockConditions.forEach((block: IConditionalBlock, index) => {
+
                     if (block.steps.length > 1) {
                         const newBlock = { ...block };
-                        newBlock.steps = block.steps.slice(1);
-                        var cndStepColl = new DynamicCollector(newBlock.steps, parsedResult, newBlock);
-
+                        var cndStepColl = new DynamicCollector(block.steps, parsedResult, finalResults, newBlock);
                         cndStepColl.parent = this.parent;
-                        const subCtx = ctx[block.steps[0]];
-                        subCtx.name = this.collectorName;
-                        let res = cndStepColl.visit(subCtx);
+                        const newCtx = ctx[block.steps[0]];
+                        let res = cndStepColl.visit(newCtx);
+
                         if (res && res[block.steps[1]] && res[block.steps[1]][0] && res[block.steps[1]][0][block.key] === block.value) {
-                            console.log('matched:', block.key, block.value);
-                            matchCount++;
+                            this.matchedConditionCount++;
                         }
-                        /*if (res[block.steps[block.steps.length - 1]][0][block.key] == block.value)
-                            matchCount++;
-                        else return;*/
                     } else {
                         var node;
                         if (ctx.tokenTypeIdx) {
@@ -89,50 +82,60 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                         }
 
                         if (node[block.key] == block.value) {
-                            matchCount++;
-                            console.log('matched:', block.key, block.value);
-                        } else return;
+                            this.matchedConditionCount++;
+                        }
                     }
                 });
 
-                if (blockConditions.length === matchCount) {
-                    //console.log(blockConditions.length + ' matched!!' + ' at ' + this.collectorName);
-                    this.results[this.collectorName].push(ctx);
-                    if (this.collectorName === parsedResult.condition.evaluateAt && parsedResult.condition.expression.blocks.length === matchCount) {
-                        console.log("collecting:");
-                        this.results['final'].push(this.parent);
+                if (this.matchedConditionCount === blockConditions.length) {
+                    //this.$mergeResults(finalResults, { [this.collectorName]: [ctx] }, this.collectorName);
+                    let continueToFilter = false;
+                    if (conditionalBlock) {
+                        continueToFilter = (this.collectorName === conditionalBlock.steps[conditionalBlock.steps.length - 1]);
+                    } else if (parsedResult.condition && parsedResult.condition.steps.length) {
+                        continueToFilter = (this.collectorName === parsedResult.condition.evaluateAt);
+                    } else {
+                        continueToFilter = (this.collectorName === parsedResult.returnAt);
+                    }
+                    if (continueToFilter) {
+                        let finals = {};
+                        if (parsedResult.trailing && parsedResult.trailing.steps.length) {
+                            let trailingStepColl = new DynamicCollector(parsedResult.trailing.steps.splice(1), parsedResult, finalResults);
+                            trailingStepColl.parent = this.parent;
+                            trailingStepColl.visit(this.parent[parsedResult.trailing.steps[0]]);
+                        }
+                        if (parsedResult.trailing.outputs) {
+                            parsedResult.trailing.outputs.forEach((output: any, index) => {
+                                if (output instanceof JPLExpression) {
+                                    let outputsColl = new DynamicCollector(output.allStepsToCondition.slice(1), output, finalResults);
+                                    outputsColl.parent = this.parent;
+                                    let outputresults = outputsColl.visit(this.parent[output.allStepsToCondition[0]]);
+                                } else {
+                                    var parts = output.split('#');
+                                    finals[parts[1] ? parts[1] : output] = ctx[parts[0]];
+                                }
+                            });
+                        }
+                        if (finals && Object.keys(finals).length) {
+                            if (!finalResults['final'])
+                                finalResults['final'] = [];
+
+                            let index = -1;
+                            finalResults['final'].forEach((item, ind) => {
+                                if (item.index === this.parent.index)
+                                    return index = ind;
+                            });
+                            if (index > -1) {
+                                finalResults['final'][index] = { ...finalResults['final'][index], ...finals };
+                            } else {
+                                finals['index'] = this.parent.index;
+                                finalResults['final'].push(finals);
+                            }
+
+                        }
                     }
                 }
-                console.log('--return AT:' + parsedResult.returnAt)
-                /*if (!parsedResult || matchCount === parsedResult.condition.expression.blocks.length) {
-                    parsedResult.trailing.outputs.forEach((out: any) => {
-                        if (out instanceof JPLExpression) {
-                            //Do work
-                            var filterColl = new DynamicCollector(out.allStepsToCondition, out);
-                            let res = filterColl.visit(this.parent);
-                            if (!this.results['final']) {
-                                this.results['final'] = {};
-                            }
-                            this.results['final'] = { ...this.results['final'], ...filterColl.results['final'] }
-                            //filterColl.parent = this.parent;
-                        } else {
-                            if (!this.results['final']) {
-                                this.results['final'] = {};
-                            }
-                            this.results['final'][out] = this.parent[out];
-                        }
-                    });
-                }*/
             }
-
-            //console.log("-".repeat(4 - collectorMethodList.length), this.collectorName);
-            /*if (methodName === 'annotation') {
-                console.dir(JSON.stringify(ctx, Utils.jsonFilter, 2));
-            }*/
         }
-    }
-    visit(ctx, parent?) {
-        super.visit(ctx, parent);
-        return this.results;
     }
 }

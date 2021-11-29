@@ -14,6 +14,7 @@ export default class JPLExpression implements IExpression {
     status: any;
     options: any;
     returnAt: string;
+    outputName: string;
 
     constructor(rawString: string, options?) {
         this.rawString = rawString;
@@ -21,14 +22,11 @@ export default class JPLExpression implements IExpression {
         this.allStepsToCondition = [];
         this.status = {};
         this.options = options;
+        this.outputName = options && options.outputName || '';
         this.parse();
     }
 
     private parse() {
-        //let myRegexp = new RegExp(/([\w\/\*)]+)(?:\[(\/.+?)\?(?:{(.*)\})\])?([\w\/:@\., \[\]]+)?/, "g");
-        //let myRegexp = new RegExp(/([\w\/\*)]+)(?:\[(\/.+?)?\?(?:{(.*)\})\])?([\w\/:, \[\]]+)?/, "g");
-        //let myRegexp = new RegExp(/([\w\/\*)]+)(?:\[(\/.+?)?\?(?:{(.*)\})\])?(.*)/, "g");
-        //let myRegexp = new RegExp(/([\w\/\*)]+)(?:\[(\/.+?)?\?(?:{(.*)\})\])?(?:(.*)\:\[(.*)\])?/, "g");
         //let myRegexp = new RegExp(/([\w\/]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/]+)?\:\[(.*)\])?/, 'g');<--good!
         let myRegexp = new RegExp(/([\w\/]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/]+)?\:\[(.*)\])?/, 'g');
         try {

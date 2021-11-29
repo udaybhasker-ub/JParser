@@ -29,7 +29,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
         this[this.collectorName] = (ctx, parent?) => {
             /*if (!finalResults[this.collectorName])
                 finalResults[this.collectorName] = [];*/
-
+            console.log('--' + this.collectorName + ' collector')
 
             if (conditionalBlock ? conditionalBlock.steps.length > 1 : collectorMethodList.length > 1) {
                 let newCondBlock;
@@ -38,7 +38,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                     newCondBlock.steps = newCondBlock.steps.slice(1);
                 }
                 var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult, finalResults, newCondBlock);
-                ctx.name = this.collectorName;
+                //ctx.name = this.collectorName;
 
                 if (this.parsedResult && this.collectorName === this.parsedResult.returnAt) {
                     subColl.parent = ctx;
@@ -50,8 +50,8 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                 } else {
                     subColl.parent = this.parent;
                 }
-
-                subColl.visit(ctx[collectorMethodList[1]]);
+                console.log('---' + collectorMethodList[1]);
+                subColl.visit(ctx);
             } else if (lastItem === this.collectorName) {
                 var matchC = 0;
                 let blockConditions: IConditionalBlock[] = [];
@@ -116,26 +116,31 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                                 }
                             });
                         }
+                        if (!finalResults['final'])
+                            finalResults['final'] = [];
                         if (finals && Object.keys(finals).length) {
-                            if (!finalResults['final'])
-                                finalResults['final'] = [];
-
                             let index = -1;
-                            finalResults['final'].forEach((item, ind) => {
+                            this.parent && finalResults['final'].forEach((item, ind) => {
                                 if (item.index === this.parent.index)
                                     return index = ind;
                             });
                             if (index > -1) {
                                 finalResults['final'][index] = { ...finalResults['final'][index], ...finals };
                             } else {
-                                finals['index'] = this.parent.index;
+                                finals['index'] = this.parent ? this.parent.index : index;
                                 finalResults['final'].push(finals);
+                                console.log(finals);
                             }
 
+                        } else if (this.collectorName === parsedResult.returnAt) {
+                            //if (!finalResults['final'][this.collectorName]) finalResults['final'][this.collectorName] = [];
+
+                            finalResults['final'] = [...finalResults['final'], ...[ctx]]
                         }
                     }
                 }
             }
         }
+        return this;
     }
 }

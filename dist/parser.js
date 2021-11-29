@@ -769,6 +769,7 @@ function defaultVisit(ctx, param) {
                 }
                 else {
                     this[currChild.name](currChild.children, param);
+                    console.log('*' + currChild.name);
                 }
             }
         }
@@ -21453,6 +21454,31 @@ var __assign = (this && this.__assign) || function () {
     };
     return __assign.apply(this, arguments);
 };
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 exports.__esModule = true;
 exports.DynamicCollector = void 0;
 var JP = __webpack_require__(/*! java-parser */ "./node_modules/java-parser/src/index.js");
@@ -21474,6 +21500,7 @@ var DynamicCollector = (function (_super) {
             return _this;
         }
         _this[_this.collectorName] = function (ctx, parent) {
+            console.log('--' + _this.collectorName + ' collector');
             if (conditionalBlock ? conditionalBlock.steps.length > 1 : collectorMethodList.length > 1) {
                 var newCondBlock = void 0;
                 if (conditionalBlock && conditionalBlock.steps.length > 1) {
@@ -21481,7 +21508,6 @@ var DynamicCollector = (function (_super) {
                     newCondBlock.steps = newCondBlock.steps.slice(1);
                 }
                 var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult, finalResults, newCondBlock);
-                ctx.name = _this.collectorName;
                 if (_this.parsedResult && _this.collectorName === _this.parsedResult.returnAt) {
                     subColl.parent = ctx;
                     finalResults['counters'] = finalResults['counters'] || {};
@@ -21493,7 +21519,8 @@ var DynamicCollector = (function (_super) {
                 else {
                     subColl.parent = _this.parent;
                 }
-                subColl.visit(ctx[collectorMethodList[1]]);
+                console.log('---' + collectorMethodList[1]);
+                subColl.visit(ctx);
             }
             else if (lastItem === _this.collectorName) {
                 var matchC = 0;
@@ -21559,11 +21586,11 @@ var DynamicCollector = (function (_super) {
                                 }
                             });
                         }
+                        if (!finalResults['final'])
+                            finalResults['final'] = [];
                         if (finals_1 && Object.keys(finals_1).length) {
-                            if (!finalResults['final'])
-                                finalResults['final'] = [];
                             var index_1 = -1;
-                            finalResults['final'].forEach(function (item, ind) {
+                            _this.parent && finalResults['final'].forEach(function (item, ind) {
                                 if (item.index === _this.parent.index)
                                     return index_1 = ind;
                             });
@@ -21571,9 +21598,13 @@ var DynamicCollector = (function (_super) {
                                 finalResults['final'][index_1] = __assign(__assign({}, finalResults['final'][index_1]), finals_1);
                             }
                             else {
-                                finals_1['index'] = _this.parent.index;
+                                finals_1['index'] = _this.parent ? _this.parent.index : index_1;
                                 finalResults['final'].push(finals_1);
+                                console.log(finals_1);
                             }
+                        }
+                        else if (_this.collectorName === parsedResult.returnAt) {
+                            finalResults['final'] = __spreadArray(__spreadArray([], __read(finalResults['final']), false), [ctx], false);
                         }
                     }
                 }
@@ -21633,14 +21664,29 @@ var JParser = (function () {
     }
     JParser.prototype.parseTest = function () {
         var cst = JP.parse(TestJavaStrings_1["default"].CONTROLLER);
-        var query = "/fieldDeclaration[/fieldModifier/annotation?{/At(image=\"@\") && /typeName/Identifier(image=\"Autowired\")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]";
-        var result = new JPLExpression_1["default"](query);
-        Utils_1["default"].printToFile(result, 'query');
-        var allSteps = __spreadArray(__spreadArray(__spreadArray([], __read(result.guiding.steps), false), __read(result.condition.steps), false), __read(result.trailing.steps), false);
-        var finalResults = [];
-        var collector = new DynamicCollector_1.DynamicCollector(allSteps, result, finalResults);
-        collector.visit(cst);
-        Utils_1["default"].printToFile(finalResults['final'], 'final');
+        var QUERIES;
+        (function (QUERIES) {
+            QUERIES["outwiredFields"] = "/fieldDeclaration[/fieldModifier/annotation?{/At(image=\"@\") && /typeName/Identifier(image=\"Autowired\")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]";
+            QUERIES["allImports"] = "/importDeclaration/Import:[image#import]";
+            QUERIES["allMethods"] = "/methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#methodName]";
+            QUERIES["classNames"] = "/classDeclaration/normalClassDeclaration/typeIdentifier/Identifier:[image#javaClass]";
+            QUERIES["test"] = "/methodBody/fqnOrRefType/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier:[image#serviceName]";
+        })(QUERIES || (QUERIES = {}));
+        ;
+        var queryTypeArr = ['test'];
+        var results = {};
+        queryTypeArr.forEach(function (queryType) {
+            var exp = new JPLExpression_1["default"](QUERIES[queryType], { outputName: queryType });
+            var finalResults = [];
+            Utils_1["default"].printToFile(exp, 'query');
+            var allSteps = __spreadArray(__spreadArray(__spreadArray([], __read(exp.guiding.steps), false), __read(exp.condition.steps), false), __read(exp.trailing.steps), false);
+            var collector = new DynamicCollector_1.DynamicCollector(allSteps, exp, finalResults);
+            collector.visit(cst);
+            if (!results[queryType])
+                results[queryType] = [];
+            results[queryType] = finalResults['final'];
+        });
+        Utils_1["default"].printToFile(results);
     };
     return JParser;
 }());
@@ -21660,7 +21706,8 @@ exports["default"] = JParser;
 
 exports.__esModule = true;
 exports["default"] = {
-    CONTROLLER: "\n    import com.pqebooks.auth.service.EbUserService;\n    import com.pqebooks.auth.service.LibrianAlertService;\n    import com.pqebooks.auth.validate.UserAccountValidator;\n    import com.pqebooks.auth.validate.ValidationError;\n    import com.pqebooks.customtext.service.IPropertyMessageService;\n    \n    @Controller\n    @SecuredAction(securityLevel=SecurityLevel.PATRON)\n    public class NewAccountController \n    {\n        private final Logger logger = LoggerFactory.getLogger(NewAccountController.class);\n    \n        @Magic\n        private AccountService accountService ; \n\n        @Autowired\n        private AccountService accountService ; \n        \n        @Autowired\n        private EbUserService userService;\n    \n        @Autowired\n        private UserSessionService sessionService;\n    \n        @Autowired\n        private IPropertyMessageService propertyMessageService;\n        \n        @Autowired\n        private ChannelService channelService;\t\n    \n        @Autowired\n        private ServletContext servletContext;\n        \n        @Autowired\n        private AuthenticationService authService;\t\n        \n        @Autowired\n        private DemographicService demographicService;\t\n        \n        @Autowired\n        LibrianAlertService librianAlertService;\n        \n        @RequestMapping(value = \"**/newAccount.action\", method = RequestMethod.GET)\n        protected String newAccount(UserSession userSession, HttpServletRequest request, HttpServletResponse response) throws IOException \n        {\n            String acronym = userSession.getChannelName();\n            Channel channel = channelService.getChannelByName(acronym, true);\n            String ip = request.getRemoteAddr();\n            if(channel == null ||  authService.accountCreateType(channel, ip, userSession.getReferralURL()) != 2 || channel.isSSO()){\n                response.sendRedirect(servletContext.getContextPath() + \"/\" + ServerMessage.PAGE_NOT_FOUND.getUrl());   \n                return null;\n            }\n            return \"account.new_account\";\n        }\n    \n        @RequestMapping(value = \"**/newAccountRequest.json\", method = RequestMethod.POST)\n        public ModelAndView newAccountRequest (UserSession userSession,  @RequestParam Map<String, String> params, \n                                                                            HttpServletRequest request) throws Exception \n        {\t\t\n            UserAccountValidator validator = createNewUser(userSession, params, request.getRemoteAddr());\n            \n            MappingJackson2JsonView jsonView = new MappingJackson2JsonView();\n            ModelAndView mav = new ModelAndView(jsonView);\n            \n            if (validator.hasError()) {\n                Map<String, String> errors = this.getErrorMap(userSession, validator);\n                mav.addObject(\"errors\", errors);\n                \n                mav.addObject(\"statusCode\", 1);\n                mav.addObject(\"status\",\"FAILURE\");\t\t\t\n            }\n            else {\n                this.userService.updateLastLoginDate(validator.getUsername(), userSession.getChannelID());\n                String demographicsQueryString = String.format(DemographicConstants.NEW_USER_ACC_CREATED_DISCRIPTION, \n                                                                     userSession.getUserName(), userSession.getChannelName()) + \" from modal\";\n                this.demographicService.addDemographics(DemographicConstants.USER_ACCOUNT, DemographicConstants.NEW_USER_CREATED, userSession, request, demographicsQueryString);\t\n                    \n                mav.addObject(\"statusCode\", 0);\n                mav.addObject(\"status\",\"SUCCESS\");\t\t\t\n            }\n            return (mav);\n        }\n        \n        @RequestMapping(value = \"**/newAccount.action\", method = RequestMethod.POST)\n        public String newAccountAction (UserSession userSession, ModelMap model, @RequestParam Map<String, String> params,\n                                                                                        HttpServletRequest request) throws Exception \n        {\n            UserAccountValidator validator = createNewUser(userSession, params, request.getRemoteAddr());\n            \n            if (! validator.hasError() ) {\n                this.userService.updateLastLoginDate(validator.getUsername(), userSession.getChannelID());\n                String demographicsQueryString = String.format(DemographicConstants.NEW_USER_ACC_CREATED_DISCRIPTION, \n                                                                      userSession.getUserName(), userSession.getChannelName());\n                this.demographicService.addDemographics(DemographicConstants.USER_ACCOUNT, DemographicConstants.NEW_USER_CREATED, \n                                                                                       userSession, request, demographicsQueryString);\t\n                            \n                return  (ConfirmMessage.NEW_ACCOUNT.sendForward());\n            }\n            \n            Map<String, String> userData = this.getUserData(validator);\n            Map<String, String> errors = this.getErrorMap(userSession, validator);\n    \n            model.addAttribute(\"userData\", userData);\n            model.addAttribute(\"errors\", errors);\n    \n            return \"account.new_account\";\n        }\n        \n        private void updateUserSession (UserSession userSession, EbUser ebUser) {\n            userSession.setUserID(ebUser.getId());\n            userSession.setUserTypeID(ebUser.getUserTypeId());\n            userSession.setUserName(ebUser.getUsername());\n            userSession.setChannelAccess(true);\n            sessionService.updateSession(userSession);\n    \n        }\n        private UserAccountValidator validateUserParams (int libraryId, Map<String, String> params)\n        {\n            UserAccountValidator validator = new UserAccountValidator();\n            \n            validator.setFirstName(params.get(\"firstName\"));\n            validator.setLastName(params.get(\"lastName\"));\n            validator.setEmail(params.get(\"email\")); \n            validator.setPassword(params.get(\"password\"));\n            \n            // deafult username to email\n            validator.setUsername( validator.getEmail());\n            String terms = params.get(\"terms\");\n            if(StringUtils.isBlank(terms)){\n                validator.addError(ValidationError.TERMS_OF_SERVICE_NOT_CHECKED);\n            }\n            if ( ! validator.hasError() ) {\n                // make sure email is not used in both username and email field.\n                EbUser user = userService.getUserByNameOrEmail(validator.getEmail(), libraryId);\n                if (user != null) {\n                    validator.addError(ValidationError.USER_ALREADY_EXIST);\n                }\n            }\n            return (validator);\n        }\n    \n        private UserAccountValidator createNewUser (UserSession userSession, Map<String, String> params, String consentIp)\n        {\n            UserAccountValidator validator = null;\n            int libraryId = userSession.getChannelID();\n    \n            try {\n                validator = validateUserParams (libraryId, params);\n        \n                if ( ! validator.hasError() ) {\n                    \n                    EbUser user = validator.createUser(libraryId, consentIp);\n                    //need to save the saltedhash\n                    user.updatePassword(validator.getPassword());\n                    userService.saveUser(user);\t\t\n                    accountService.sendNewAccountEmail(userSession,user);\n                    librianAlertService.sendNewAccountEmail(userSession, user);\n                    updateUserSession (userSession, user);\n    \n                }\n            }\n            catch (Exception e) {\n                logger.warn(\"Cannot create new user for email [{}] library [{}]\", params.get(\"email\"), libraryId, e);\n                if (validator == null) {\n                    validator = new UserAccountValidator();\n                }\n                validator.addError(ValidationError.USER_UPDATE_ERROR);\n            }\n            return (validator);\n        }\n        \n        private Map<String, String> getUserData (UserAccountValidator validator) \n        {\n            Map<String, String> userData = new HashMap<>();\n            userData.put(\"firstName\", validator.getFirstName());\n            userData.put(\"lastName\", validator.getLastName());\n            userData.put(\"email\", validator.getEmail());\n            // password should not be pre-populated back to the form\n            return (userData);\n        }\n    \n        private Map<String, String> getErrorMap (UserSession userSession, UserAccountValidator validator) \n        {\n            Map<String, String> errorMap = validator.getErrorMap(\"pqAuthError_\");\n            propertyMessageService.populateErrorMessageMap(errorMap, userSession);\n            return (errorMap);\n        }\n    }\n    "
+    LOGIN: "",
+    CONTROLLER: ""
 };
 
 
@@ -21716,7 +21763,9 @@ exports["default"] = {
     printToFile: function (data, filePrefix) {
         var str = JSON.stringify(data, this.jsonFilter, 2);
         var fname = filePrefix ? filePrefix : '_test';
-        fs.writeFileSync('devTesting/result_' + fname + '.json', str);
+        fname = 'devTesting/result_' + fname + '.json';
+        fs.writeFileSync(fname, str);
+        console.log('Written to ' + fname);
     },
     mergeArrays: function (arr1, arr2) {
         if (!arr1)
@@ -21864,6 +21913,7 @@ var JPLExpression = (function () {
         this.allStepsToCondition = [];
         this.status = {};
         this.options = options;
+        this.outputName = options && options.outputName || '';
         this.parse();
     }
     JPLExpression.prototype.parse = function () {

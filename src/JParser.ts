@@ -13,16 +13,31 @@ export default class JParser {
     }
     parseTest() {
         const cst = JP.parse(TestJavaStrings.CONTROLLER);
-        const query = `/fieldDeclaration[/fieldModifier/annotation?{/At(image="@") && /typeName/Identifier(image="Autowired")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]`;
-        const result = new JPLExpression(query);
-        //Utils._console(result);
-        Utils.printToFile(result, 'query');
-        var allSteps = [...result.guiding.steps, ...result.condition.steps, ...result.trailing.steps];
-        //console.log(allSteps);
-        let finalResults = [];
-        let collector = new DynamicCollector(allSteps, result, finalResults);
-        collector.visit(cst);
-        //Utils.printToFile(collector.results['annotation'], 'annotation');
-        Utils.printToFile(finalResults['final'], 'final');
+        enum QUERIES {
+            outwiredFields = `/fieldDeclaration[/fieldModifier/annotation?{/At(image="@") && /typeName/Identifier(image="Autowired")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]`,
+            allImports = `/importDeclaration/Import:[image#import]`,
+            allMethods = `/methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#methodName]`,
+            classNames = `/classDeclaration/normalClassDeclaration/typeIdentifier/Identifier:[image#javaClass]`,
+            test = `/methodBody/fqnOrRefType/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier:[image#serviceName]`,
+            //test = `/methodBody/block/blockStatements`,
+        };
+        //methodBody/fqnOrRefType/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier:[image#serviceName]
+        //methodBody/fqnOrRefType/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#serviceMethod]
+        //methodBody/fqnOrRefType[]
+        //let queryTypeArr = ['outwiredFields', 'allMethods'];
+        let queryTypeArr = ['test'];
+        let results = {};
+        queryTypeArr.forEach((queryType) => {
+            const exp = new JPLExpression(QUERIES[queryType], { outputName: queryType });
+            let finalResults = [];
+            Utils.printToFile(exp, 'query');
+            var allSteps = [...exp.guiding.steps, ...exp.condition.steps, ...exp.trailing.steps];
+            let collector = new DynamicCollector(allSteps, exp, finalResults);
+            collector.visit(cst);
+            if (!results[queryType]) results[queryType] = [];
+            results[queryType] = finalResults['final'];
+        });
+        Utils.printToFile(results);
+
     }
 }

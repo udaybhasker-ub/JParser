@@ -6,4 +6,5 @@ export interface IExpression {
     condition: ICondition,
     trailing: ITrailingExpression,
     returnAt?: string,
+    outputName: string,
 }

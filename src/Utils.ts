@@ -11,8 +11,10 @@ export default {
     },
     printToFile(data, filePrefix?) {
         const str = JSON.stringify(data, this.jsonFilter, 2);
-        const fname = filePrefix ? filePrefix : '_test';
-        fs.writeFileSync('devTesting/result_' + fname + '.json', str);
+        let fname = filePrefix ? filePrefix : '_test';
+        fname = 'devTesting/result_' + fname + '.json';
+        fs.writeFileSync(fname, str);
+        console.log('Written to ' + fname);
     },
     mergeArrays(arr1, arr2) {
         if (!arr1) arr1 = [];

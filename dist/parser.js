@@ -757,6 +757,7 @@ function defaultVisit(ctx, param) {
     var childrenNamesLength = childrenNames.length;
     for (var i = 0; i < childrenNamesLength; i++) {
         var currChildName = childrenNames[i];
+        if (currChildName === 'name') return;
         var currChildArray = ctx[currChildName];
         var currChildArrayLength = currChildArray.length;
         for (var j = 0; j < currChildArrayLength; j++) {

@@ -28,7 +28,7 @@ export enum QUERIES {
     test9 = `/methodBody/blockStatements/blockStatement[?{/fqnOrRefType/fqnOrRefTypePartFirst/Identifier(image="userService")]/unaryExpression/primary/primaryPrefix/fqnOrRefType:[/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier:[image#service], /fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#serviceMethod]]`,
     test10 = `/methodBody/block/blockStatements/blockStatement/statement/block/blockStatements/blockStatement/statement/statementWithoutTrailingSubstatement/expressionStatement/statementExpression/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primarySuffix[?{/Identifier(image="userService")}]`,
     test11 = `/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="userService")}]`,
-    alluserServiceSteps = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="userService")}]:[/primarySuffix~0/Identifier:[image#primarySuffix], /primarySuffix~1/Identifier:[image#primarySuffix]]`,
+    alluserServiceSteps = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="userService")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceCall]]`,
 };
 //
 export default class JParser {
@@ -37,6 +37,8 @@ export default class JParser {
     parse() {
         const cstNode = JP.parse(TestJavaStrings.CONTROLLER);
         var queryTypeArr = ['serviceWithoutThis', 'alluserServiceSteps'];
+        //var queryTypeArr = ['serviceWithoutThis'];
+        //var queryTypeArr = ['alluserServiceSteps'];
         let results = {};
         queryTypeArr.forEach((queryType) => {
             const exp = new JPLExpression(QUERIES[queryType], { outputName: queryType });

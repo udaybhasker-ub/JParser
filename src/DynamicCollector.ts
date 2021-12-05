@@ -111,7 +111,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                         //cndStepColl.parent = this.parent;
 
                         //const newCtx = ctx[block.steps[0]];
-                        cndStepColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent, blockConditionIndex: index });
+                        cndStepColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent: returningParent || parent, blockConditionIndex: index });
                     } else {
                         var node;
                         if (ctx.tokenTypeIdx) {
@@ -199,7 +199,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
 
                                         finals[parts[1] ? parts[1] : output] = ctx[parts[0]];
                                         console.log(finals);
-                                        if (parsedResult.trailing.outputs.length === 1) {
+                                        if (parsedResult.trailing.outputs.length === 1 && !returningParent) {
                                             returningParent = ctx;
                                             returningParent.index = parentIndex;
                                         }

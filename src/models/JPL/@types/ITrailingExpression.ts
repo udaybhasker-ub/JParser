@@ -5,4 +5,6 @@ export interface ITrailingExpression {
     steps: string[];
     outputs: IExpression[];
     rawString: string;
+    outputAt: string;
+    isEmpty: boolean;
 }

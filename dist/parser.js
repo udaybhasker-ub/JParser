@@ -100,8 +100,7 @@ var JParser_1 = __webpack_require__(/*! ./src/JParser */ "./src/JParser.ts");
 Array.prototype['last'] = function () {
     return this[this.length - 1];
 };
-var parser = new JParser_1["default"]();
-parser.parseTest();
+new JParser_1["default"]().parse();
 
 
 /***/ }),
@@ -752,7 +751,8 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-function defaultVisit(ctx, param) {
+
+function defaultVisit(ctx, param, matchingIndices) {
     var childrenNames = Object(_utils_utils__WEBPACK_IMPORTED_MODULE_0__["keys"])(ctx);
     var childrenNamesLength = childrenNames.length;
     for (var i = 0; i < childrenNamesLength; i++) {
@@ -760,22 +760,82 @@ function defaultVisit(ctx, param) {
         if (currChildName === 'name') return;
         var currChildArray = ctx[currChildName];
         var currChildArrayLength = currChildArray.length;
+        if (currChildName === 'primarySuffix' && currChildArrayLength === 3) {
+            console.log();
+        }
         for (var j = 0; j < currChildArrayLength; j++) {
             var currChild = currChildArray[j];
             // distinction between Tokens Children and CstNode children
             if (currChild.tokenTypeIdx === undefined) {
                 if (currChild.fullName !== undefined) {
+                    param = appendPathToParam(currChild.fullName, param);
                     this[currChild.fullName](currChild.children, param);
                 }
                 else {
-                    this[currChild.name](currChild.children, param);
-                    console.log('*' + currChild.name);
+                    let name = currChild.name;
+                    let hasIndex = false;
+                    let indexMap = getMatchingIndexMap(currChild.name, matchingIndices);
+                    if (indexMap) {
+                        name = indexMap.name + '~' + indexMap.index;
+                        if (j != indexMap.index) {
+                            continue;
+                        }
+                        else {
+                            console.log();
+                        }
+                        hasIndex = true;
+                    } else if (this && this.collectorName) {
+                        let parts = this.collectorName.split('~');
+                        if (parts.length > 1 && parts[0] === currChild.name) {
+                            name = this.collectorName;
+                            if (currChildArrayLength > 1) {
+                                console.log();
+                            }
+                            if (parts[1] != j) {
+                                console.log('----------skipping ' + name + ':' + j + '/' + currChildArrayLength);
+                                continue;
+                            }
+                            hasIndex = true;
+                        }
+                    }
+
+                    param = appendPathToParam(name, param);
+                    if (hasIndex && !this[name]) {
+                        name = currChild.name;
+                    }
+                    this[name](currChild.children, param);
+
+                    //if(param && param.positionMapping && param.positionMapping[currChild.name])
+                }
+            } else {
+                if (this[currChild.tokenType.name]) {
+                    param = appendPathToParam(currChild.tokenType.name, param);
+                    this[currChild.tokenType.name](currChild, param);
+                    if (param && param.path) param.path = '';
                 }
             }
         }
     }
     // defaultVisit does not support generic out param
     return undefined;
+}
+function getMatchingIndexMap(step, matchingIndices) {
+    let retIndexMap;
+    matchingIndices && matchingIndices.map(indexMap => {
+        let parts = indexMap.name.split('~');
+        if (parts[0] === step) {
+            retIndexMap = indexMap;
+            return;
+        }
+    });
+    return retIndexMap;
+}
+function appendPathToParam(step, param) {
+    if (!step) return;
+    if (!param) param = {};
+    if (!param.path) param.path = '';
+    param.path = (param.path ? param.path + '>' : '') + step;
+    return param;
 }
 function createBaseSemanticVisitorConstructor(grammarName, ruleNames) {
     var derivedConstructor = function () { };
@@ -796,12 +856,26 @@ function createBaseSemanticVisitorConstructor(grammarName, ruleNames) {
                 return undefined;
             }
             if (cstNode.fullName !== undefined) {
+                param = appendPathToParam(cstNode.fullName, param);
                 return this[cstNode.fullName](cstNode.children, param);
             }
             else {
                 if (cstNode.tokenTypeIdx) {
+                    param = appendPathToParam(cstNode.tokenType.name, param);
                     return this[cstNode.tokenType.name](cstNode, param);
                 }
+                console.log('#name:' + cstNode.name);
+                if (param && param.matchingIndices) {
+                    return defaultVisit.call(this, cstNode.children, param, param.matchingIndices);
+                } else {
+                    let parts = cstNode.name.split('~');
+                    if (parts.length > 1) {
+                        //cstNode.name = parts[0];
+                        console.log();
+                        return defaultVisit.call(this, cstNode.children, param, [{ name: parts[0], index: parts[1] }]);
+                    }
+                }
+
                 return this[cstNode.name](cstNode.children, param);
             }
         },
@@ -21490,7 +21564,6 @@ var DynamicCollector = (function (_super) {
         _this.collectorMethodList = [];
         _this.results = {};
         _this.finalResults = [];
-        _this.matchedConditionCount = 0;
         _this.validateVisitor();
         _this.collectorMethodList = collectorMethodList;
         _this.collectorName = collectorMethodList[0];
@@ -21499,8 +21572,28 @@ var DynamicCollector = (function (_super) {
         if (!collectorMethodList) {
             return _this;
         }
-        _this[_this.collectorName] = function (ctx, parent) {
-            console.log('--' + _this.collectorName + ' collector');
+        _this[_this.collectorName] = function (ctx, params) {
+            var parent = params && params.parent;
+            var returningParent = params && params.returningParent;
+            var isTrailingStep = params && params.isTrailingStep;
+            var trace = params && params.trace;
+            var path = params && params.path;
+            if (_this.collectorName.indexOf('primarySuffix') > -1) {
+                console.log();
+            }
+            if (_this.collectorName === 'primary') {
+                console.log();
+            }
+            if (_this.collectorName === 'Identifier') {
+                console.log();
+            }
+            if (!conditionalBlock && _this.collectorName === parsedResult.returnAt) {
+                parent = ctx;
+            }
+            if (isTrailingStep && _this.collectorName === parsedResult.outputAt) {
+                _this.results = ctx;
+                return;
+            }
             if (conditionalBlock ? conditionalBlock.steps.length > 1 : collectorMethodList.length > 1) {
                 var newCondBlock = void 0;
                 if (conditionalBlock && conditionalBlock.steps.length > 1) {
@@ -21509,38 +21602,38 @@ var DynamicCollector = (function (_super) {
                 }
                 var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult, finalResults, newCondBlock);
                 if (_this.parsedResult && _this.collectorName === _this.parsedResult.returnAt) {
-                    subColl.parent = ctx;
+                    parent = ctx;
                     finalResults['counters'] = finalResults['counters'] || {};
                     var counter = finalResults['counters'][_this.collectorName] || 0;
                     counter++;
                     finalResults['counters'][_this.collectorName] = counter;
-                    subColl.parent.index = counter;
+                    parent.index = counter;
+                    returningParent = parent;
+                    trace = '';
                 }
                 else {
-                    subColl.parent = _this.parent;
+                    trace = (trace ? trace + '>' : '') + _this.collectorName;
                 }
-                console.log('---' + collectorMethodList[1]);
-                subColl.visit(ctx);
+                if (conditionalBlock) {
+                }
+                subColl.visit({ name: _this.collectorName, children: ctx }, { parent: parent, returningParent: returningParent, trace: trace, path: path });
             }
             else if (lastItem === _this.collectorName) {
                 var matchC = 0;
                 var blockConditions = [];
-                if (conditionalBlock) {
+                if (isTrailingStep) {
+                }
+                else if (conditionalBlock) {
                     blockConditions.push(conditionalBlock);
                 }
                 else if (parsedResult && parsedResult.condition.expression) {
                     blockConditions = parsedResult.condition.expression.blocks;
                 }
+                var matchedConditionCount_1 = 0;
                 blockConditions.forEach(function (block, index) {
                     if (block.steps.length > 1) {
-                        var newBlock = __assign({}, block);
-                        var cndStepColl = new DynamicCollector(block.steps, parsedResult, finalResults, newBlock);
-                        cndStepColl.parent = _this.parent;
-                        var newCtx = ctx[block.steps[0]];
-                        var res = cndStepColl.visit(newCtx);
-                        if (res && res[block.steps[1]] && res[block.steps[1]][0] && res[block.steps[1]][0][block.key] === block.value) {
-                            _this.matchedConditionCount++;
-                        }
+                        var cndStepColl = new DynamicCollector(block.steps, parsedResult, finalResults, block);
+                        cndStepColl.visit({ name: _this.collectorName, children: ctx }, { parent: parent, returningParent: returningParent, blockConditionIndex: index });
                     }
                     else {
                         var node;
@@ -21548,14 +21641,24 @@ var DynamicCollector = (function (_super) {
                             node = ctx;
                         }
                         else {
-                            node = ctx[block.steps[0]][0];
+                            if (ctx[block.steps[0]]) {
+                                node = ctx[block.steps[0]][0];
+                            }
+                            else {
+                            }
                         }
-                        if (node[block.key] == block.value) {
-                            _this.matchedConditionCount++;
+                        if (node && node[block.key] == block.value) {
+                            matchedConditionCount_1++;
                         }
                     }
                 });
-                if (_this.matchedConditionCount === blockConditions.length) {
+                if (matchedConditionCount_1 == 1) {
+                    console.log();
+                }
+                if (matchedConditionCount_1 === blockConditions.length) {
+                    if (matchedConditionCount_1 == 1) {
+                        console.log();
+                    }
                     var continueToFilter = false;
                     if (conditionalBlock) {
                         continueToFilter = (_this.collectorName === conditionalBlock.steps[conditionalBlock.steps.length - 1]);
@@ -21569,49 +21672,106 @@ var DynamicCollector = (function (_super) {
                     if (continueToFilter) {
                         var finals_1 = {};
                         if (parsedResult.trailing && parsedResult.trailing.steps.length) {
-                            var trailingStepColl = new DynamicCollector(parsedResult.trailing.steps.splice(1), parsedResult, finalResults);
-                            trailingStepColl.parent = _this.parent;
-                            trailingStepColl.visit(_this.parent[parsedResult.trailing.steps[0]]);
+                            var sliceIndex = parsedResult.trailing.steps.length > 1 ? 1 : 0;
+                            var trailingStepColl = new DynamicCollector(parsedResult.trailing.steps.slice(sliceIndex), parsedResult, finalResults);
+                            trailingStepColl.visit({ name: parsedResult.returnAt, children: parent }, { parent: parent, returningParent: returningParent, isTrailingStep: true });
+                            parent = trailingStepColl.results;
+                            if (!parsedResult.trailing.outputs.length) {
+                                finalResults['final'] = __spreadArray(__spreadArray([], __read(finalResults['final']), false), [parent], false);
+                            }
                         }
-                        if (parsedResult.trailing.outputs) {
+                        if (parsedResult.trailing.outputs.length) {
+                            finalResults['counters'] = finalResults['counters'] || {};
+                            finalResults['counters'][parsedResult.returnAt] = finalResults['counters'][parsedResult.returnAt] || 0;
+                            var parentIndex = finalResults['counters'][parsedResult.returnAt]++;
                             parsedResult.trailing.outputs.forEach(function (output, index) {
                                 if (output instanceof JPLExpression_1["default"]) {
-                                    var outputsColl = new DynamicCollector(output.allStepsToCondition.slice(1), output, finalResults);
-                                    outputsColl.parent = _this.parent;
-                                    var outputresults = outputsColl.visit(_this.parent[output.allStepsToCondition[0]]);
+                                    var outputsColl = new DynamicCollector(output.allStepsToCondition.slice(output.allStepsToCondition.length > 1 ? 1 : 0), output, finalResults);
+                                    parent.index = parentIndex;
+                                    finalResults[_this.collectorName] = finalResults[_this.collectorName] || [];
+                                    var matchingIndices_1 = [];
+                                    output.allStepsToCondition.forEach(function (output) {
+                                        var parts = output.split('~');
+                                        if (parts.length > 1) {
+                                            matchingIndices_1.push({ name: parts[0], index: parts[1] });
+                                        }
+                                    });
+                                    outputsColl.visit({ name: parsedResult.outputAt, children: parent }, { parent: parent, returningParent: returningParent, trace: output.allStepsToCondition.join('>'), isTrailingOutput: true, matchingIndices: matchingIndices_1 });
                                 }
                                 else {
-                                    var parts = output.split('#');
-                                    finals_1[parts[1] ? parts[1] : output] = ctx[parts[0]];
+                                    var pathMatched = _this.$checkPathMatched(trace, path);
+                                    if (pathMatched) {
+                                        var parts = output.split('#');
+                                        finals_1[parts[1] ? parts[1] : output] = ctx[parts[0]];
+                                        console.log(finals_1);
+                                        if (parsedResult.trailing.outputs.length === 1) {
+                                            returningParent = ctx;
+                                            returningParent.index = parentIndex;
+                                        }
+                                    }
+                                    console.log('pathMatched=' + pathMatched);
                                 }
                             });
                         }
                         if (!finalResults['final'])
                             finalResults['final'] = [];
-                        if (finals_1 && Object.keys(finals_1).length) {
+                        if (returningParent && finals_1 && Object.keys(finals_1).length) {
                             var index_1 = -1;
-                            _this.parent && finalResults['final'].forEach(function (item, ind) {
-                                if (item.index === _this.parent.index)
+                            returningParent && finalResults['final'].forEach(function (item, ind) {
+                                if (item.index === returningParent.index)
                                     return index_1 = ind;
                             });
                             if (index_1 > -1) {
                                 finalResults['final'][index_1] = __assign(__assign({}, finalResults['final'][index_1]), finals_1);
+                                console.log(finals_1);
                             }
                             else {
-                                finals_1['index'] = _this.parent ? _this.parent.index : index_1;
+                                finals_1['index'] = returningParent ? returningParent.index : index_1;
                                 finalResults['final'].push(finals_1);
                                 console.log(finals_1);
                             }
                         }
-                        else if (_this.collectorName === parsedResult.returnAt) {
-                            finalResults['final'] = __spreadArray(__spreadArray([], __read(finalResults['final']), false), [ctx], false);
-                        }
                     }
+                }
+                if (!finalResults['final'])
+                    finalResults['final'] = [];
+                if (parsedResult.trailing.isEmpty && !parsedResult.condition.isEmpty) {
+                    var save = false;
+                    var blocksSize = parsedResult.condition.expression && parsedResult.condition.expression.blocks.length;
+                    if (parsedResult.condition.steps.length && matchedConditionCount_1 === blocksSize && _this.collectorName === parsedResult.condition.evaluateAt) {
+                        finalResults['final'] = __spreadArray(__spreadArray([], __read(finalResults['final']), false), [parent], false);
+                    }
+                    else if (!parsedResult.condition.steps.length && (blocksSize === 0 || matchedConditionCount_1 === blocksSize)) {
+                        finalResults['final'] = __spreadArray(__spreadArray([], __read(finalResults['final']), false), [parent], false);
+                    }
+                }
+                else if (parsedResult.trailing.isEmpty && parsedResult.condition.isEmpty && _this.collectorName === parsedResult.returnAt) {
+                    finalResults['final'] = __spreadArray(__spreadArray([], __read(finalResults['final']), false), [ctx], false);
                 }
             }
         };
         return _this;
     }
+    DynamicCollector.prototype.$checkPathMatched = function (path, fullPath) {
+        if (!path || !fullPath)
+            return false;
+        var pathSegments = path.split('>');
+        var fullPathSegments = fullPath.split('>');
+        var lastPathMatchIndex = -1;
+        for (var i = 0; i < pathSegments.length; i++) {
+            var segment = pathSegments[i];
+            var matchIndex = fullPathSegments.slice(lastPathMatchIndex > -1 || 0).indexOf(segment);
+            if (matchIndex < 0) {
+                return false;
+            }
+            lastPathMatchIndex = matchIndex;
+        }
+        return true;
+    };
+    DynamicCollector.prototype.visit = function (ctx, param) {
+        _super.prototype.visit.call(this, ctx, param);
+        return this.results;
+    };
     return DynamicCollector;
 }(JP.BaseJavaCstVisitorWithDefaults));
 exports.DynamicCollector = DynamicCollector;
@@ -21628,6 +21788,17 @@ exports.DynamicCollector = DynamicCollector;
 
 "use strict";
 
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __read = (this && this.__read) || function (o, n) {
     var m = typeof Symbol === "function" && o[Symbol.iterator];
     if (!m) return o;
@@ -21654,39 +21825,58 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 exports.__esModule = true;
+exports.QUERIES = void 0;
 var JP = __webpack_require__(/*! java-parser */ "./node_modules/java-parser/src/index.js");
 var TestJavaStrings_1 = __webpack_require__(/*! ./TestJavaStrings */ "./src/TestJavaStrings.ts");
 var DynamicCollector_1 = __webpack_require__(/*! ./DynamicCollector */ "./src/DynamicCollector.ts");
 var Utils_1 = __webpack_require__(/*! ./Utils */ "./src/Utils.ts");
 var JPLExpression_1 = __webpack_require__(/*! ./models/JPLExpression */ "./src/models/JPLExpression.ts");
+var QUERIES;
+(function (QUERIES) {
+    QUERIES["outwiredFields"] = "/fieldDeclaration[/fieldModifier/annotation?{/At(image=\"@\") && /typeName/Identifier(image=\"Autowired\")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]";
+    QUERIES["allImports"] = "/importDeclaration/Import:[image#import]";
+    QUERIES["allMethods"] = "/methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#methodName]";
+    QUERIES["classNames"] = "/classDeclaration/normalClassDeclaration/typeIdentifier/Identifier:[image#javaClass]";
+    QUERIES["test"] = "/methodBody/block/blockStatements/blockStatement/localVariableDeclarationStatement/localVariableDeclaration/variableDeclaratorList/variableDeclarator/variableInitializer/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primaryPrefix/fqnOrRefType/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier[?{(image=\"accountService\")}]:[image#serviceCall]";
+    QUERIES["serviceWithoutThis"] = "/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image=\"userService\")}]:[/fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]";
+    QUERIES["serviceWithThis"] = "/methodBody/blockStatements/statementWithoutTrailingSubstatement/unaryExpression/primarySuffix/Identifier(image=\"userService\")]/fqnOrRefType:[/fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]";
+    QUERIES["test21"] = "/methodBody/blockStatements/blockStatement/fqnOrRefType[?{/fqnOrRefTypePartFirst/Identifier(image=\"userService\")}]";
+    QUERIES["test3"] = "methodBody/blockStatements/blockStatement/statement/statementWithoutTrailingSubstatement/expressionStatement/statementExpression/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primarySuffix/Identifier:[image#serviceCall]";
+    QUERIES["test4"] = "/methodBody/blockStatements/blockStatement/fqnOrRefType[?{/fqnOrRefTypePartFirst/Identifier(image=\"userService\")}]";
+    QUERIES["test5"] = "/methodBody/blockStatements/blockStatement[?{/fqnOrRefType/fqnOrRefTypePartFirst/Identifier(image=\"userService\")}]/fqnOrRefType";
+    QUERIES["test6"] = "/methodBody/blockStatements[?{/fqnOrRefType/fqnOrRefTypePartFirst/Identifier(image=\"userService\")}]:[/fqnOrRefType/fqnOrRefTypePartFirst/Identifier:[image#service]]";
+    QUERIES["test7"] = "statement/statementWithoutTrailingSubstatement/expressionStatement/statementExpression/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primaryPrefix/fqnOrRefType[/fqnOrRefTypePartFirst?{/fqnOrRefTypePartCommon(image=\"userService\")}]";
+    QUERIES["test8"] = "statement/ifStatement/statement/statementWithoutTrailingSubstatement/block/blockStatements/blockStatement/localVariableDeclarationStatement/localVariableDeclaration/variableDeclaratorList/variableDeclarator/variableInitializer/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primaryPrefix/fqnOrRefType/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon[?{/Identifier(image=\"userService\")}]";
+    QUERIES["test9"] = "/methodBody/blockStatements/blockStatement[?{/fqnOrRefType/fqnOrRefTypePartFirst/Identifier(image=\"userService\")]/unaryExpression/primary/primaryPrefix/fqnOrRefType:[/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier:[image#service], /fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#serviceMethod]]";
+    QUERIES["test10"] = "/methodBody/block/blockStatements/blockStatement/statement/block/blockStatements/blockStatement/statement/statementWithoutTrailingSubstatement/expressionStatement/statementExpression/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primarySuffix[?{/Identifier(image=\"userService\")}]";
+    QUERIES["test11"] = "/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image=\"userService\")}]";
+    QUERIES["alluserServiceSteps"] = "/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image=\"userService\")}]:[/primarySuffix~0/Identifier:[image#primarySuffix], /primarySuffix~1/Identifier:[image#primarySuffix]]";
+})(QUERIES = exports.QUERIES || (exports.QUERIES = {}));
+;
 var JParser = (function () {
     function JParser() {
     }
-    JParser.prototype.parseTest = function () {
-        var cst = JP.parse(TestJavaStrings_1["default"].CONTROLLER);
-        var QUERIES;
-        (function (QUERIES) {
-            QUERIES["outwiredFields"] = "/fieldDeclaration[/fieldModifier/annotation?{/At(image=\"@\") && /typeName/Identifier(image=\"Autowired\")}]:[/fieldModifier/annotation/typeName/Identifier:[image#annotation], /unannType/unannClassType/Identifier:[image#className], /variableDeclaratorList/variableDeclaratorId/Identifier:[image#instanceId]]";
-            QUERIES["allImports"] = "/importDeclaration/Import:[image#import]";
-            QUERIES["allMethods"] = "/methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#methodName]";
-            QUERIES["classNames"] = "/classDeclaration/normalClassDeclaration/typeIdentifier/Identifier:[image#javaClass]";
-            QUERIES["test"] = "/methodBody/fqnOrRefType/fqnOrRefTypePartFirst/fqnOrRefTypePartCommon/Identifier:[image#serviceName]";
-        })(QUERIES || (QUERIES = {}));
-        ;
-        var queryTypeArr = ['test'];
+    JParser.prototype.parse = function () {
+        var _this = this;
+        var cstNode = JP.parse(TestJavaStrings_1["default"].CONTROLLER);
+        var queryTypeArr = ['serviceWithoutThis', 'alluserServiceSteps'];
         var results = {};
         queryTypeArr.forEach(function (queryType) {
             var exp = new JPLExpression_1["default"](QUERIES[queryType], { outputName: queryType });
-            var finalResults = [];
             Utils_1["default"].printToFile(exp, 'query');
-            var allSteps = __spreadArray(__spreadArray(__spreadArray([], __read(exp.guiding.steps), false), __read(exp.condition.steps), false), __read(exp.trailing.steps), false);
-            var collector = new DynamicCollector_1.DynamicCollector(allSteps, exp, finalResults);
-            collector.visit(cst);
+            var finalResults = _this.getResults(cstNode, exp);
             if (!results[queryType])
                 results[queryType] = [];
-            results[queryType] = finalResults['final'];
+            results[queryType] = __assign({}, finalResults);
         });
         Utils_1["default"].printToFile(results);
+    };
+    JParser.prototype.getResults = function (cst, expression) {
+        var finalResults = [];
+        var allSteps = __spreadArray(__spreadArray([], __read(expression.guiding.steps), false), __read(expression.condition.steps), false);
+        var collector = new DynamicCollector_1.DynamicCollector(allSteps, expression, finalResults);
+        collector.visit(cst);
+        return finalResults;
     };
     return JParser;
 }());
@@ -21707,7 +21897,7 @@ exports["default"] = JParser;
 exports.__esModule = true;
 exports["default"] = {
     LOGIN: "",
-    CONTROLLER: ""
+    CONTROLLER: "package com.pqebooks.auth.controller;\n\n    import java.io.IOException;\n    import java.util.Date;\n    import java.util.HashMap;\n    import java.util.Map;\n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n    import javax.servlet.ServletContext;\n    import javax.servlet.http.HttpServletRequest;\n    import javax.servlet.http.HttpServletResponse;\n    \n    import org.apache.commons.lang3.StringUtils;\n    import org.slf4j.Logger;\n    import org.slf4j.LoggerFactory;\n    import org.springframework.beans.factory.annotation.Autowired;\n    import org.springframework.stereotype.Controller;\n    import org.springframework.ui.ModelMap;\n    import org.springframework.web.bind.annotation.RequestMapping;\n    import org.springframework.web.bind.annotation.RequestMethod;\n    import org.springframework.web.bind.annotation.RequestParam;\n    import org.springframework.web.servlet.ModelAndView;\n    import org.springframework.web.servlet.view.json.MappingJackson2JsonView;\n    \n    import com.pqebooks.common.constants.DemographicConstants;\n    import com.pqebooks.common.service.DemographicService;\n    import com.pqebooks.common.session.UserSession;\n    import com.pqebooks.common.session.UserSessionService;\n    import com.pqebooks.common.util.PQDateTimeUtil;\n    import com.pqebooks.common.web.message.ConfirmMessage;\n    import com.pqebooks.common.web.message.ServerMessage;\n    import com.pqebooks.common.web.security.SecuredAction;\n    import com.pqebooks.common.web.security.SecuredAction.SecurityLevel;\n    import com.pqebooks.auth.domain.Channel;\n    import com.pqebooks.auth.domain.EbUser;\n    import com.pqebooks.auth.service.AccountService;\n    import com.pqebooks.auth.service.AuthenticationService;\n    import com.pqebooks.auth.service.ChannelService;\n    import com.pqebooks.auth.service.EbUserService;\n    import com.pqebooks.auth.service.LibrianAlertService;\n    import com.pqebooks.auth.validate.UserAccountValidator;\n    import com.pqebooks.auth.validate.ValidationError;\n    import com.pqebooks.customtext.service.IPropertyMessageService;\n    \n    @Controller\n    @SecuredAction(securityLevel=SecurityLevel.PATRON)\n    public class NewAccountController \n    {\n        private final Logger logger = LoggerFactory.getLogger(NewAccountController.class);\n    \n        @Test\n        private TestService testService;\n        \n        @Autowired\n        private AccountService accountService ; \n        \n        @Autowired\n        private EbUserService userService;\n    \n        @Autowired\n        private UserSessionService sessionService;\n    \n        @Autowired\n        private IPropertyMessageService propertyMessageService;\n        \n        @Autowired\n        private ChannelService channelService;\t\n    \n        @Autowired\n        private ServletContext servletContext;\n        \n        @Autowired\n        private AuthenticationService authService;\t\n        \n        @Autowired\n        private DemographicService demographicService;\t\n        \n        @Autowired\n        LibrianAlertService librianAlertService;\n        \n        @RequestMapping(value = \"**/newAccount.action\", method = RequestMethod.GET)\n        protected String newAccount(UserSession userSession, HttpServletRequest request, HttpServletResponse response) throws IOException \n        {\n            String acronym = userSession.getChannelName();\n            Channel channel = channelService.getChannelByName(acronym, true);\n            String ip = request.getRemoteAddr();\n            if(channel == null ||  authService.accountCreateType(channel, ip, userSession.getReferralURL()) != 2 || channel.isSSO()){\n                response.sendRedirect(servletContext.getContextPath() + \"/\" + ServerMessage.PAGE_NOT_FOUND.getUrl());   \n                return null;\n            }\n            return \"account.new_account\";\n        }\n    \n        @RequestMapping(value = \"**/newAccountRequest.json\", method = RequestMethod.POST)\n        public ModelAndView newAccountRequest (UserSession userSession,  @RequestParam Map<String, String> params, \n                                                                            HttpServletRequest request) throws Exception \n        {\t\t\n            UserAccountValidator validator = createNewUser(userSession, params, request.getRemoteAddr());\n            \n            MappingJackson2JsonView jsonView = new MappingJackson2JsonView();\n            ModelAndView mav = new ModelAndView(jsonView);\n            \n            if (validator.hasError()) {\n                Map<String, String> errors = this.getErrorMap(userSession, validator);\n                mav.addObject(\"errors\", errors);\n                \n                mav.addObject(\"statusCode\", 1);\n                mav.addObject(\"status\",\"FAILURE\");\t\t\t\n            }\n            else {\n                this.userService.updateLastLoginDate(validator.getUsername(), userSession.getChannelID());\n                String demographicsQueryString = String.format(DemographicConstants.NEW_USER_ACC_CREATED_DISCRIPTION, \n                                                                     userSession.getUserName(), userSession.getChannelName()) + \" from modal\";\n                this.demographicService.addDemographics(DemographicConstants.USER_ACCOUNT, DemographicConstants.NEW_USER_CREATED, userSession, request, demographicsQueryString);\t\n                    \n                mav.addObject(\"statusCode\", 0);\n                mav.addObject(\"status\",\"SUCCESS\");\t\t\t\n            }\n            return (mav);\n        }\n        \n        @RequestMapping(value = \"**/newAccount.action\", method = RequestMethod.POST)\n        public String newAccountAction (UserSession userSession, ModelMap model, @RequestParam Map<String, String> params,\n                                                                                        HttpServletRequest request) throws Exception \n        {\n            UserAccountValidator validator = createNewUser(userSession, params, request.getRemoteAddr());\n            \n            if (! validator.hasError() ) {\n                this.userService.updateLastLoginDate(validator.getUsername(), userSession.getChannelID());\n                String demographicsQueryString = String.format(DemographicConstants.NEW_USER_ACC_CREATED_DISCRIPTION, \n                                                                      userSession.getUserName(), userSession.getChannelName());\n                this.demographicService.addDemographics(DemographicConstants.USER_ACCOUNT, DemographicConstants.NEW_USER_CREATED, \n                                                                                       userSession, request, demographicsQueryString);\t\n                            \n                return  (ConfirmMessage.NEW_ACCOUNT.sendForward());\n            }\n            \n            Map<String, String> userData = this.getUserData(validator);\n            Map<String, String> errors = this.getErrorMap(userSession, validator);\n    \n            model.addAttribute(\"userData\", userData);\n            model.addAttribute(\"errors\", errors);\n    \n            return \"account.new_account\";\n        }\n        \n        private void updateUserSession (UserSession userSession, EbUser ebUser) {\n            userSession.setUserID(ebUser.getId());\n            userSession.setUserTypeID(ebUser.getUserTypeId());\n            userSession.setUserName(ebUser.getUsername());\n            userSession.setChannelAccess(true);\n            sessionService.updateSession(userSession);\n    \n        }\n        private UserAccountValidator validateUserParams (int libraryId, Map<String, String> params)\n        {\n            UserAccountValidator validator = new UserAccountValidator();\n            \n            validator.setFirstName(params.get(\"firstName\"));\n            validator.setLastName(params.get(\"lastName\"));\n            validator.setEmail(params.get(\"email\")); \n            validator.setPassword(params.get(\"password\"));\n            \n            // deafult username to email\n            validator.setUsername( validator.getEmail());\n            String terms = params.get(\"terms\");\n            if(StringUtils.isBlank(terms)){\n                validator.addError(ValidationError.TERMS_OF_SERVICE_NOT_CHECKED);\n            }\n            if ( ! validator.hasError() ) {\n                // make sure email is not used in both username and email field.\n                EbUser user = userService.getUserByNameOrEmail(validator.getEmail(), libraryId);\n                if (user != null) {\n                    validator.addError(ValidationError.USER_ALREADY_EXIST);\n                }\n            }\n            return (validator);\n        }\n    \n        private UserAccountValidator createNewUser (UserSession userSession, Map<String, String> params, String consentIp)\n        {\n            UserAccountValidator validator = null;\n            int libraryId = userSession.getChannelID();\n    \n            try {\n                validator = validateUserParams (libraryId, params);\n        \n                if ( ! validator.hasError() ) {\n                    \n                    EbUser user = validator.createUser(libraryId, consentIp);\n                    //need to save the saltedhash\n                    user.updatePassword(validator.getPassword());\n                    userService.saveUser(user);\t\t\n                    accountService.sendNewAccountEmail(userSession,user);\n                    librianAlertService.sendNewAccountEmail(userSession, user);\n                    updateUserSession (userSession, user);\n    \n                }\n            }\n            catch (Exception e) {\n                logger.warn(\"Cannot create new user for email [{}] library [{}]\", params.get(\"email\"), libraryId, e);\n                if (validator == null) {\n                    validator = new UserAccountValidator();\n                }\n                validator.addError(ValidationError.USER_UPDATE_ERROR);\n            }\n            return (validator);\n        }\n        \n        private Map<String, String> getUserData (UserAccountValidator validator) \n        {\n            Map<String, String> userData = new HashMap<>();\n            userData.put(\"firstName\", validator.getFirstName());\n            userData.put(\"lastName\", validator.getLastName());\n            userData.put(\"email\", validator.getEmail());\n            // password should not be pre-populated back to the form\n            return (userData);\n        }\n    \n        private Map<String, String> getErrorMap (UserSession userSession, UserAccountValidator validator) \n        {\n            Map<String, String> errorMap = validator.getErrorMap(\"pqAuthError_\");\n            propertyMessageService.populateErrorMessageMap(errorMap, userSession);\n            return (errorMap);\n        }\n    }\n    "
 };
 
 
@@ -21795,7 +21985,8 @@ var ConditionalExpression_1 = __webpack_require__(/*! ./ConditionalExpression */
 var Condition = (function () {
     function Condition(rawString, stepsString) {
         this.steps = [];
-        if (!(rawString && stepsString))
+        this.isEmpty = false;
+        if (!rawString && !stepsString)
             return null;
         this.rawString = rawString;
         if (stepsString)
@@ -21803,17 +21994,18 @@ var Condition = (function () {
         this.parse();
     }
     Condition.prototype.parse = function () {
-        var regex2 = /(?:([a-zA-Z0-9\/]+)\((\w+)="([\w|@]+)"\))\s?([&|\|]{2})?\s?/g;
+        var regex2 = /(?:([a-zA-Z0-9\/~]+)?\((\w+)="([\w|@]+)"\))\s?([&|\|]{2})?\s?/g;
         var myRegexp2 = new RegExp(regex2, 'gi');
         myRegexp2.lastIndex = 0;
         var match;
         this.expression = new ConditionalExpression_1["default"]();
         while (match = myRegexp2.exec(this.rawString)) {
-            var block = new ConditionalBlock_1["default"](match[1].match(/[^/]+/g), match[2], match[3]);
+            var block = new ConditionalBlock_1["default"](match[1] && match[1].match(/[^/]+/g), match[2], match[3]);
             this.expression.blocks.push(block);
             this.expression.operator = match[4] || this.expression.operator;
         }
         this.evaluateAt = this.steps[this.steps.length - 1];
+        this.isEmpty = !(this.steps.length > 0 || (this.expression && this.expression.blocks.length > 0));
     };
     return Condition;
 }());
@@ -21835,7 +22027,7 @@ exports.__esModule = true;
 var ConditionalBlock = (function () {
     function ConditionalBlock(steps, key, value) {
         this.isMatched = false;
-        this.steps = steps;
+        this.steps = steps || [];
         this.key = key;
         this.value = value;
     }
@@ -21908,16 +22100,18 @@ var Condition_1 = __webpack_require__(/*! ./Condition */ "./src/models/Condition
 var TrailingExpression_1 = __webpack_require__(/*! ./TrailingExpression */ "./src/models/TrailingExpression.ts");
 var JPLExpression = (function () {
     function JPLExpression(rawString, options) {
+        this.allSteps = new Set();
         this.rawString = rawString;
         this.guiding = { steps: [] };
         this.allStepsToCondition = [];
         this.status = {};
         this.options = options;
         this.outputName = options && options.outputName || '';
+        this.positionMapping = {};
         this.parse();
     }
     JPLExpression.prototype.parse = function () {
-        var myRegexp = new RegExp(/([\w\/]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/]+)?\:\[(.*)\])?/, 'g');
+        var myRegexp = new RegExp(/([\w\/~]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/~]+)?(?:\:\[(.*)\])?)?/, 'g');
         try {
             var match = myRegexp.exec(this.rawString);
             this.guiding.steps = match[1].match(/[^/]+/g);
@@ -21929,11 +22123,42 @@ var JPLExpression = (function () {
             }
             this.status.isValid = true;
             this.returnAt = this.guiding.steps.last();
+            this.outputAt = (this.trailing.steps[this.trailing.steps.length - 1]) || this.returnAt;
+            this.allSteps = this.getAllSteps();
         }
         catch (err) {
             console.error(err);
             this.status.isValid = false;
         }
+    };
+    JPLExpression.prototype.createPositionMapping = function (steps) {
+        var _this = this;
+        steps && steps.forEach(function (element, index) {
+            var parts = element.split('~');
+            if (parts.length > 1) {
+                steps[index] = parts[0];
+                _this.positionMapping[parts[0]] = parts[1];
+            }
+        });
+    };
+    JPLExpression.prototype.getAllSteps = function () {
+        var steps = new Set();
+        if (!this.status.isValid)
+            return steps;
+        this.guiding && this.guiding.steps.forEach(function (step) { return steps.add(step); });
+        if (this.condition) {
+            this.condition.steps.forEach(function (step) { return steps.add(step); });
+            this.condition.expression && this.condition.expression.blocks.forEach(function (block) {
+                block.steps && block.steps.forEach(function (blockStep) { return steps.add(blockStep); });
+            });
+        }
+        if (this.trailing) {
+            this.trailing.steps.forEach(function (step) { return steps.add(step); });
+            this.trailing.outputs.forEach(function (out) {
+                out.allSteps && out.allSteps.forEach(function (outStep) { return steps.add(outStep); });
+            });
+        }
+        return steps;
     };
     return JPLExpression;
 }());
@@ -21956,7 +22181,8 @@ var JPLExpression_1 = __webpack_require__(/*! ./JPLExpression */ "./src/models/J
 var TrailingExpression = (function () {
     function TrailingExpression(steps, filterString) {
         var _this = this;
-        this.steps = [];
+        this.isEmpty = false;
+        this.steps = steps && steps.split('/').filter(Boolean) || [];
         this.outputs = [];
         this.rawString = (steps ? steps : '') + filterString ? filterString : '';
         if (filterString) {
@@ -21976,6 +22202,8 @@ var TrailingExpression = (function () {
                     _this.outputs.push(outExpression);
             });
         }
+        this.isEmpty = !(this.steps.length > 0 || this.outputs.length > 0);
+        this.outputAt = this.steps.length && this.steps[this.steps.length - 1];
     }
     TrailingExpression.prototype.execRegex = function (string, pattern) {
         var m, regex = new RegExp(pattern);

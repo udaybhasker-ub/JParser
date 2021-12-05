@@ -8,7 +8,7 @@ export default class ConditionalBlock implements IConditionalBlock {
     isMatched: boolean = false;
 
     constructor(steps, key, value) {
-        this.steps = steps;
+        this.steps = steps || [];
         this.key = key;
         this.value = value;
     }

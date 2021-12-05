@@ -6,10 +6,11 @@ export default class TrailingExpression implements ITrailingExpression {
     steps: string[];
     outputs: any[];
     rawString: string;
-
+    outputAt: string;
+    isEmpty: boolean = false;
 
     constructor(steps, filterString) {
-        this.steps = [];
+        this.steps = steps && steps.split('/').filter(Boolean) || [];
         this.outputs = [];
         this.rawString = (steps ? steps : '') + filterString ? filterString : '';
 
@@ -30,6 +31,8 @@ export default class TrailingExpression implements ITrailingExpression {
                 } else this.outputs.push(outExpression);
             });
         }
+        this.isEmpty = !(this.steps.length > 0 || this.outputs.length > 0);
+        this.outputAt = this.steps.length && this.steps[this.steps.length - 1];
     }
 
     private execRegex(string, pattern) {

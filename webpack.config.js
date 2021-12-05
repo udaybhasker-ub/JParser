@@ -4,6 +4,7 @@ const DeclarationBundlerPlugin = require('./declaration-bundler-webpack-plugin.f
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 const UglifyJSPlugin = require('uglifyjs-webpack-plugin')
+const { ContextReplacementPlugin } = require('webpack')
 
 module.exports = {
     entry: {
@@ -32,7 +33,8 @@ module.exports = {
         new DeclarationBundlerPlugin({
             moduleName: 'parser',
             out: '@types/index.d.ts'
-        })
+        }),
+        new ContextReplacementPlugin(/typescript|typedoc/)
     ],
     devtool: 'source-map',
     optimization: {

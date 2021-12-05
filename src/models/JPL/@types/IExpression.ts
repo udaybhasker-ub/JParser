@@ -6,5 +6,8 @@ export interface IExpression {
     condition: ICondition,
     trailing: ITrailingExpression,
     returnAt?: string,
+    outputAt: string,
     outputName: string,
+    positionMapping: any,
+    allSteps: Set<string>
 }

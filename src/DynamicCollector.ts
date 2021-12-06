@@ -35,18 +35,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
             var isTrailingStep = params && params.isTrailingStep;
             var trace = params && params.trace;
             var path = params && params.path;
-            /*if (!finalResults[this.collectorName])
-                finalResults[this.collectorName] = [];*/
-            //console.log('--' + this.collectorName + ' collector')
-            if (this.collectorName.indexOf('primarySuffix') > -1) {
-                console.log();
-            }
-            if (this.collectorName === 'primary') {
-                console.log();
-            }
-            if (this.collectorName === 'Identifier') {
-                console.log();
-            }
+
             if (!conditionalBlock && this.collectorName === parsedResult.returnAt) {
                 parent = ctx;
             }
@@ -131,17 +120,10 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                         }
                     }
                 });
-                /*if (conditionalBlock) {
-                    this.matchedConditionCount = matchedConditionCount > 0;
-                }*/
-                if (matchedConditionCount == 1) {
-                    console.log();
-                }
+
                 //console.log(`this.matchedConditionCount=%s, blockConditions.length=%s`, matchedConditionCount, blockConditions.length);
                 if (matchedConditionCount === blockConditions.length) {
-                    if (matchedConditionCount == 1) {
-                        console.log();
-                    }
+
                     //this.$mergeResults(finalResults, { [this.collectorName]: [ctx] }, this.collectorName);
                     let continueToFilter = false;
                     if (conditionalBlock) {
@@ -198,14 +180,14 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
 
 
                                         finals[parts[1] ? parts[1] : output] = ctx[parts[0]];
-                                        console.log(finals);
+                                        //console.log(finals);
                                         if (parsedResult.trailing.outputs.length === 1 && !returningParent) {
                                             returningParent = ctx;
                                             returningParent.index = parentIndex;
                                         }
                                     }
                                     //if (params && params.path) params.path = '';
-                                    console.log('pathMatched=' + pathMatched);
+                                    //console.log('pathMatched=' + pathMatched);
                                 }
                             });
                         }
@@ -219,11 +201,11 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                             });
                             if (index > -1) {
                                 finalResults['final'][index] = { ...finalResults['final'][index], ...finals };
-                                console.log(finals);
+                                //console.log(finals);
                             } else {
                                 finals['index'] = returningParent ? returningParent.index : index;
                                 finalResults['final'].push(finals);
-                                console.log(finals);
+                                //console.log(finals);
                             }
 
                         }/* else if (this.collectorName === parsedResult.returnAt) {

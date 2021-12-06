@@ -1,9 +1,5 @@
 import * as JP from "java-parser";
 import TestJavaStrings from './TestJavaStrings';
-import { Collectors, CustomCollector } from './CustomCollectors'
-import CollectorFactory from './CollectorFactory';
-import type { CstNode, CstChildrenDictionary, CstNodeLocation } from 'chevrotain';
-import JPL from './JPL';
 import { DynamicCollector } from './DynamicCollector';
 import Utils from './Utils';
 import JPLExpression from "./models/JPLExpression";
@@ -29,32 +25,67 @@ export enum QUERIES {
     test10 = `/methodBody/block/blockStatements/blockStatement/statement/block/blockStatements/blockStatement/statement/statementWithoutTrailingSubstatement/expressionStatement/statementExpression/expression/ternaryExpression/binaryExpression/unaryExpression/primary/primarySuffix[?{/Identifier(image="userService")}]`,
     test11 = `/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="userService")}]`,
     alluserServiceSteps = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="userService")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceCall]]`,
+    serviceWithoutThisSub = `/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[/fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]`,
+    alluserServiceStepsSub = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
 };
 //
 export default class JParser {
     constructor() {
+        const cstNode = JP.parse(TestJavaStrings.LOGIN);
+        let combinedResults = this.getAllServiceCalls(cstNode);
+        Utils.printToFile({ login: combinedResults }, 'combined');
+        console.log('Done!');
+    }
+    getAllServiceCalls(cstNode) {
+        let results = {};
+        let combinedResults = [];
+
+        const autoWiredQuery = new JPLExpression(QUERIES['outwiredFields'], { outputName: 'outwiredFields' });
+        let allAutowiredFields = this.getResults(cstNode, autoWiredQuery);
+        allAutowiredFields.forEach(autoWiredField => {
+            autoWiredField = autoWiredField.instanceId;
+            var queryTypeArr = ['serviceWithoutThisSub', 'alluserServiceStepsSub'];
+            let serviceCalls = [];
+            queryTypeArr.forEach((queryType) => {
+                const query = this.getQuery(queryType, autoWiredField)
+                //Utils.printToFile(query, 'query');
+                let finalResults = this.getResults(cstNode, query);
+                if (!serviceCalls[queryType]) serviceCalls[queryType] = [];
+                finalResults = [...new Map(finalResults.map(v => {
+                    return [JSON.stringify([v.service, v.serviceMethod]), v]
+                })).values()]
+
+                serviceCalls[queryType] = finalResults;
+                combinedResults = [...combinedResults, ...finalResults];
+            });
+            if (!results[autoWiredField]) results[autoWiredField] = [];
+            results[autoWiredField] = { ...serviceCalls };
+        });
+        //Utils.printToFile(results);
+        return combinedResults;
     }
     parse() {
         const cstNode = JP.parse(TestJavaStrings.CONTROLLER);
         var queryTypeArr = ['serviceWithoutThis', 'alluserServiceSteps'];
-        //var queryTypeArr = ['serviceWithoutThis'];
-        //var queryTypeArr = ['alluserServiceSteps'];
         let results = {};
         queryTypeArr.forEach((queryType) => {
-            const exp = new JPLExpression(QUERIES[queryType], { outputName: queryType });
-            Utils.printToFile(exp, 'query');
-            let finalResults = this.getResults(cstNode, exp);
+            const query = new JPLExpression(QUERIES[queryType], { outputName: queryType });
+            Utils.printToFile(query, 'query');
+            let finalResults = this.getResults(cstNode, query);
             if (!results[queryType]) results[queryType] = [];
             results[queryType] = { ...finalResults };
-            //results[queryType] = finalResults['final'];
         });
         Utils.printToFile(results);
     }
-    getResults(cst, expression) {
+    getResults(cst, query) {
         let finalResults = [];
-        var allSteps = [...expression.guiding.steps, ...expression.condition.steps];
-        let collector = new DynamicCollector(allSteps, expression, finalResults);
+        var allSteps = [...query.guiding.steps, ...query.condition.steps];
+        let collector = new DynamicCollector(allSteps, query, finalResults);
         collector.visit(cst);
-        return finalResults;
+        return finalResults['final'];
+    }
+    private getQuery(key, arg1) {
+        let query = QUERIES[key].replace(/@1/g, arg1);
+        return new JPLExpression(query, { outputName: key });
     }
 }

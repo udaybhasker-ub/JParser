@@ -45,7 +45,7 @@ export default class JPLExpression implements IExpression {
                 this.status.isFilter = true;
             }
             this.status.isValid = true;
-            this.returnAt = this.guiding.steps.last();
+            this.returnAt = this.guiding.steps[this.guiding.steps.length - 1];
             this.outputAt = (this.trailing.steps[this.trailing.steps.length - 1]) || this.returnAt;
             this.allSteps = this.getAllSteps();
         } catch (err) {

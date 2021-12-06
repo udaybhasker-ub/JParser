@@ -1,11 +1,7 @@
 import * as JP from "java-parser";
-import { keys } from "lodash";
-import _ = require("lodash");
-import ConditionalExpression from "./models/ConditionalExpression";
 import { IConditionalBlock } from "./models/JPL/@types/IConditionalBlock";
 import { IExpression } from "./models/JPL/@types/IExpression";
 import JPLExpression from "./models/JPLExpression";
-import Utils from "./Utils";
 
 export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
     collectorName: string;
@@ -52,7 +48,6 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                     newCondBlock.steps = newCondBlock.steps.slice(1);
                 }
                 var subColl = new DynamicCollector(collectorMethodList.slice(1), parsedResult, finalResults, newCondBlock);
-                //ctx.name = this.collectorName;
 
                 if (this.parsedResult && this.collectorName === this.parsedResult.returnAt) {
                     parent = ctx;
@@ -60,24 +55,12 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                     let counter = finalResults['counters'][this.collectorName] || 0;
                     counter++;
                     finalResults['counters'][this.collectorName] = counter;
-                    //subColl.parent.index = counter;
                     parent.index = counter;
                     returningParent = parent;
                     trace = '';
                 } else {
-                    //if (parent) parent.parent = ctx;
-                    //subColl.parent = parent;
-                    //subColl.returningParent = this.returningParent;
                     trace = (trace ? trace + '>' : '') + this.collectorName;
                 }
-                if (conditionalBlock) {
-                    //finalResults[this.collectorName] = finalResults[this.collectorName] || [];
-                    //finalResults[this.collectorName].push(ctx);
-                }
-                //console.log('---' + collectorMethodList[1]);
-
-                //console.log("trace:" + trace);
-
                 subColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent, trace, path });
             } else if (lastItem === this.collectorName) {
                 var matchC = 0;
@@ -93,13 +76,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                 let matchedConditionCount = 0;
                 blockConditions.forEach((block: IConditionalBlock, index) => {
                     if (block.steps.length > 1) {
-                        //const newBlock = { ...block };
-                        //console.log('path@' + path);
                         var cndStepColl = new DynamicCollector(block.steps, parsedResult, finalResults, block);
-                        //this.parent.index = 
-                        //cndStepColl.parent = this.parent;
-
-                        //const newCtx = ctx[block.steps[0]];
                         cndStepColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent: returningParent || parent, blockConditionIndex: index });
                     } else {
                         var node;
@@ -110,9 +87,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                             if (ctx[block.steps[0]]) {
                                 node = ctx[block.steps[0]][0];
                             } else {
-                                /* var cndStepColl = new DynamicCollector(block.steps, parsedResult, finalResults, block);
-                                 cndStepColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent });
-                                 return;*/
+
                             }
                         }
                         if (node && node[block.key] == block.value) {
@@ -121,10 +96,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                     }
                 });
 
-                //console.log(`this.matchedConditionCount=%s, blockConditions.length=%s`, matchedConditionCount, blockConditions.length);
                 if (matchedConditionCount === blockConditions.length) {
-
-                    //this.$mergeResults(finalResults, { [this.collectorName]: [ctx] }, this.collectorName);
                     let continueToFilter = false;
                     if (conditionalBlock) {
                         continueToFilter = (this.collectorName === conditionalBlock.steps[conditionalBlock.steps.length - 1]);
@@ -138,11 +110,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                         if (parsedResult.trailing && parsedResult.trailing.steps.length) {
                             let sliceIndex = parsedResult.trailing.steps.length > 1 ? 1 : 0;
                             let trailingStepColl = new DynamicCollector(parsedResult.trailing.steps.slice(sliceIndex), parsedResult, finalResults);
-                            //trailingStepColl.returningParent = this.returningParent;
-                            //trailingStepColl.parent = this.parent;
-                            //trailingStepColl.isTrailingStep = true;
                             trailingStepColl.visit({ name: parsedResult.returnAt, children: parent }, { parent, returningParent, isTrailingStep: true });
-                            //this.parent = trailingStepColl.results;
                             parent = trailingStepColl.results;
                             if (!parsedResult.trailing.outputs.length) {
                                 finalResults['final'] = [...finalResults['final'], ...[parent]];
@@ -155,12 +123,9 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                             parsedResult.trailing.outputs.forEach((output: any, index) => {
                                 if (output instanceof JPLExpression) {
                                     let outputsColl = new DynamicCollector(output.allStepsToCondition.slice(output.allStepsToCondition.length > 1 ? 1 : 0), output, finalResults);
-                                    //outputsColl.isTrailingStep = true;
                                     parent.index = parentIndex;
                                     finalResults[this.collectorName] = finalResults[this.collectorName] || [];
-                                    //finalResults[this.collectorName].push(parent);
-                                    //outputsColl.parent = this.parent;
-                                    //outputsColl.returningParent = this.parent;
+
                                     let matchingIndices = [];
                                     output.allStepsToCondition.forEach((output) => {
                                         let parts = output.split('~');
@@ -170,24 +135,16 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                                     });
                                     outputsColl.visit({ name: parsedResult.outputAt, children: parent }, { parent, returningParent, trace: output.allStepsToCondition.join('>'), isTrailingOutput: true, matchingIndices });
                                 } else {
-                                    //console.log("blockConditionIndex=" + blockConditionIndex + ", trailingOutputIndex=" + trailingOutputIndex);
-                                    //console.log("path=" + path);
-                                    //console.log("output=" + output);
                                     const pathMatched = this.$checkPathMatched(trace, path);
                                     if (pathMatched) {
-                                        //console.log(trace);
                                         var parts = output.split('#');
 
-
                                         finals[parts[1] ? parts[1] : output] = ctx[parts[0]];
-                                        //console.log(finals);
                                         if (parsedResult.trailing.outputs.length === 1 && !returningParent) {
                                             returningParent = ctx;
                                             returningParent.index = parentIndex;
                                         }
                                     }
-                                    //if (params && params.path) params.path = '';
-                                    //console.log('pathMatched=' + pathMatched);
                                 }
                             });
                         }
@@ -201,18 +158,11 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                             });
                             if (index > -1) {
                                 finalResults['final'][index] = { ...finalResults['final'][index], ...finals };
-                                //console.log(finals);
                             } else {
                                 finals['index'] = returningParent ? returningParent.index : index;
                                 finalResults['final'].push(finals);
-                                //console.log(finals);
                             }
-
-                        }/* else if (this.collectorName === parsedResult.returnAt) {
-                            //if (!finalResults['final'][this.collectorName]) finalResults['final'][this.collectorName] = [];
-
-                            finalResults['final'] = [...finalResults['final'], ...[ctx]]
-                        }*/
+                        }
                     }
                 }
                 if (!finalResults['final'])
@@ -230,8 +180,6 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                 } else if (parsedResult.trailing.isEmpty && parsedResult.condition.isEmpty && this.collectorName === parsedResult.returnAt) {
                     finalResults['final'] = [...finalResults['final'], ...[ctx]]
                 }
-                //if (!finalResults['final'][this.collectorName]) finalResults['final'][this.collectorName] = [];
-                //if (params && params.path) params.path = '';
             }
         }
         return this;

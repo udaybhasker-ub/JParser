@@ -3,7 +3,8 @@
     "version": "1.0.0",
     "description": "",
     "scripts": {
-        "build": "webpack"
+        "build": "webpack",
+        "clean": "rm -rf node_modules/ package-lock.json"
     },
     "keywords": [],
     "author": "",
@@ -25,7 +26,8 @@
         "wepack-cli": "0.0.1-security"
     },
     "dependencies": {
-        "java-parser": "^2.0.0",
-        "lodash": "^4.17.21"
+        "java-parser": "https://github.com/udaybhasker-ub/java-parser.git",
+        "lodash": "^4.17.21",
+        "request": "^2.88.2"
     }
 }

@@ -25,7 +25,7 @@ export default class TrailingExpression implements ITrailingExpression {
             }
 
             (subArray || [filterString]).forEach(element => {
-                const outExpression = new JPLExpression(element);
+                const outExpression = new JPLExpression(element).parse();
                 if (outExpression.status && outExpression.status.isFilter) {
                     this.outputs.push(element);
                 } else this.outputs.push(outExpression);

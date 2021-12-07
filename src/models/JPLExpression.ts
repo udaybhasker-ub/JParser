@@ -16,28 +16,37 @@ export default class JPLExpression implements IExpression {
     returnAt: string;
     outputAt: string;
     outputName: string;
-    positionMapping: {};
+    outputAliases: any[];
+    inputAliases: any[];
     allSteps = new Set<string>();
 
-    constructor(rawString: string, options?) {
+    constructor(rawString?: string, options?) {
         this.rawString = rawString;
         this.guiding = { steps: [] };
         this.allStepsToCondition = [];
         this.status = {};
         this.options = options;
         this.outputName = options && options.outputName || '';
-        this.positionMapping = {};
-        this.parse();
+        this.outputAliases = [];
+        this.inputAliases = [];
     }
 
-    private parse() {
-        //let myRegexp = new RegExp(/([\w\/]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/]+)?\:\[(.*)\])?/, 'g');<--good!
-        //let myRegexp = new RegExp(/([\w\/]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/]+)?\:\[(.*)\])?/, 'g');
-        let myRegexp = new RegExp(/([\w\/~]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/~]+)?(?:\:\[(.*)\])?)?/, 'g');
+    parse() {
+        let myRegexp = new RegExp(/([\w\/~@]+)?(?:\[(\/.+?)?\?(?:{(.*?)\})\])?(?:(?<!^)([\w\/~]+)?(?:\:\[(.*)\])?)?/, 'g');
         try {
             var match = myRegexp.exec(this.rawString);
             this.guiding.steps = match[1].match(/[^/]+/g);
-            //this.createPositionMapping(this.guiding.steps);
+            this.guiding.steps.forEach((step, index) => {
+                if (step.indexOf('@') === step.length - 1) {
+                    const name = step.substr(0, step.length - 1);
+                    this.outputAliases.push(name);
+                    this.guiding.steps[index] = name;
+                } else if (step.indexOf('@') === 0) {
+                    const name = step.slice(1);
+                    this.inputAliases.push(name);
+                    this.guiding.steps[index] = name;
+                }
+            });
             this.condition = new Condition(match[3], match[2]);
             this.trailing = new TrailingExpression(match[4], match[5]);
             this.allStepsToCondition = [...this.guiding.steps, ...this.condition.steps];
@@ -52,15 +61,7 @@ export default class JPLExpression implements IExpression {
             console.error(err);
             this.status.isValid = false;
         }
-    }
-    private createPositionMapping(steps) {
-        steps && steps.forEach((element, index) => {
-            let parts = element.split('~');
-            if (parts.length > 1) {
-                steps[index] = parts[0];
-                this.positionMapping[parts[0]] = parts[1];
-            }
-        });
+        return this;
     }
     private getAllSteps(): Set<string> {
         let steps = new Set<string>();

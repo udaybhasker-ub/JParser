@@ -4,5 +4,6 @@ export interface ICondition {
     steps: string[],
     expression: IConditionalExpression,
     evaluateAt?: string,
-    isEmpty: boolean
+    isEmpty: boolean,
+    rawString: string,
 }

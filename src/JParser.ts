@@ -27,11 +27,14 @@ export enum QUERIES {
     alluserServiceSteps = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="userService")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceCall]]`,
     serviceWithoutThisSub = `/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[/fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]`,
     alluserServiceStepsSub = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
+    serviceWithoutThisSubTest = `/methodDeclaration@/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]`,
+    alluserServiceStepsSubTest = `/methodDeclaration@/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
 };
 //
 export default class JParser {
     constructor() {
-        const cstNode = JP.parse(TestJavaStrings.LOGIN);
+        //this.parse('userService');
+        const cstNode = JP.parse(TestJavaStrings.CONTROLLER);
         let combinedResults = this.getAllServiceCalls(cstNode);
         Utils.printToFile({ login: combinedResults }, 'combined');
         console.log('Done!');
@@ -40,11 +43,11 @@ export default class JParser {
         let results = {};
         let combinedResults = [];
 
-        const autoWiredQuery = new JPLExpression(QUERIES['outwiredFields'], { outputName: 'outwiredFields' });
+        const autoWiredQuery = new JPLExpression(QUERIES['outwiredFields'], { outputName: 'outwiredFields' }).parse();
         let allAutowiredFields = this.getResults(cstNode, autoWiredQuery);
         allAutowiredFields.forEach(autoWiredField => {
             autoWiredField = autoWiredField.instanceId;
-            var queryTypeArr = ['serviceWithoutThisSub', 'alluserServiceStepsSub'];
+            var queryTypeArr = ['serviceWithoutThisSubTest', 'alluserServiceStepsSubTest'];
             let serviceCalls = [];
             queryTypeArr.forEach((queryType) => {
                 const query = this.getQuery(queryType, autoWiredField)
@@ -52,7 +55,7 @@ export default class JParser {
                 let finalResults = this.getResults(cstNode, query);
                 if (!serviceCalls[queryType]) serviceCalls[queryType] = [];
                 finalResults = [...new Map(finalResults.map(v => {
-                    return [JSON.stringify([v.service, v.serviceMethod]), v]
+                    return [JSON.stringify([v.sourceMethod, v.service, v.serviceMethod]), v]
                 })).values()]
 
                 serviceCalls[queryType] = finalResults;
@@ -64,12 +67,12 @@ export default class JParser {
         //Utils.printToFile(results);
         return combinedResults;
     }
-    parse() {
-        const cstNode = JP.parse(TestJavaStrings.CONTROLLER);
-        var queryTypeArr = ['serviceWithoutThis', 'alluserServiceSteps'];
+    parse(serviceName) {
+        const cstNode = JP.parse(TestJavaStrings.LOGIN);
+        var queryTypeArr = ['alluserServiceStepsSubTest'];
         let results = {};
         queryTypeArr.forEach((queryType) => {
-            const query = new JPLExpression(QUERIES[queryType], { outputName: queryType });
+            const query = this.getQuery(queryType, serviceName);
             Utils.printToFile(query, 'query');
             let finalResults = this.getResults(cstNode, query);
             if (!results[queryType]) results[queryType] = [];
@@ -86,6 +89,6 @@ export default class JParser {
     }
     private getQuery(key, arg1) {
         let query = QUERIES[key].replace(/@1/g, arg1);
-        return new JPLExpression(query, { outputName: key });
+        return new JPLExpression(query, { outputName: key }).parse();
     }
 }

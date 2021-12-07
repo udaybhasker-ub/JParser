@@ -8,6 +8,7 @@ export interface IExpression {
     returnAt?: string,
     outputAt: string,
     outputName: string,
-    positionMapping: any,
+    outputAliases: any[],
+    inputAliases: any[],
     allSteps: Set<string>
 }

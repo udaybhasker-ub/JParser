@@ -27,47 +27,56 @@ export enum QUERIES {
     alluserServiceSteps = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="userService")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceCall]]`,
     serviceWithoutThisSub = `/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[/fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]`,
     alluserServiceStepsSub = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
-    serviceWithoutThisSubTest = `/methodDeclaration@/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /fqnOrRefTypePartFirst/Identifier:[image#service], /fqnOrRefTypePartRest/Identifier:[image#serviceMethod]]`,
-    alluserServiceStepsSubTest = `/methodDeclaration@/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
+    serviceWithoutThisSubTest = `/methodDeclaration@/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /fqnOrRefTypePartFirst/Identifier:[image#componentInstance], /fqnOrRefTypePartRest/Identifier:[image#componentMethod]]`,
+    alluserServiceStepsSubTest = `/methodDeclaration@/methodBody/block/blockStatements/blockStatement/expression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /primarySuffix~0/Identifier:[image#componentInstance], /primarySuffix~1/Identifier:[image#componentMethod]]`,
 };
 //
 export default class JParser {
-    constructor() {
-        //this.parse('userService');
-        const cstNode = JP.parse(TestJavaStrings.CONTROLLER);
-        let combinedResults = this.getAllServiceCalls(cstNode);
-        Utils.printToFile({ login: combinedResults }, 'combined');
-        console.log('Done!');
+    name: string;
+    contentString: string;
+
+    constructor(name, contentString) {
+        this.name = name;
+        this.contentString = contentString;
+    }
+    parse() {
+        //this.parseTest('userService');
+        const cstNode = JP.parse(this.contentString);
+        let combinedResults = {};
+        combinedResults = this.getAllServiceCalls(cstNode);
+        //Utils.printToFile(cstNode, this.name);
+        return combinedResults;
     }
     getAllServiceCalls(cstNode) {
-        let results = {};
-        let combinedResults = [];
+        let combinedResults = {};
 
         const autoWiredQuery = new JPLExpression(QUERIES['outwiredFields'], { outputName: 'outwiredFields' }).parse();
         let allAutowiredFields = this.getResults(cstNode, autoWiredQuery);
+        if (!allAutowiredFields) {
+            throw new Error('No autowired fields found');
+        }
         allAutowiredFields.forEach(autoWiredField => {
-            autoWiredField = autoWiredField.instanceId;
+            const instanceName = autoWiredField.instanceId;
+            const className = autoWiredField.className;
             var queryTypeArr = ['serviceWithoutThisSubTest', 'alluserServiceStepsSubTest'];
-            let serviceCalls = [];
+            let queryResults = [];
             queryTypeArr.forEach((queryType) => {
-                const query = this.getQuery(queryType, autoWiredField)
+                const query = this.getQuery(queryType, instanceName)
                 //Utils.printToFile(query, 'query');
                 let finalResults = this.getResults(cstNode, query);
-                if (!serviceCalls[queryType]) serviceCalls[queryType] = [];
+                //if (!serviceCalls[queryType]) serviceCalls[queryType] = [];
                 finalResults = [...new Map(finalResults.map(v => {
-                    return [JSON.stringify([v.sourceMethod, v.service, v.serviceMethod]), v]
-                })).values()]
+                    return [JSON.stringify([v.sourceMethod, v.componentInstance, v.componentMethod]), v]
+                })).values()];
 
-                serviceCalls[queryType] = finalResults;
-                combinedResults = [...combinedResults, ...finalResults];
+                queryResults.push({ queryName: queryType, results: finalResults });
             });
-            if (!results[autoWiredField]) results[autoWiredField] = [];
-            results[autoWiredField] = { ...serviceCalls };
+            combinedResults[className] = queryResults;
         });
         //Utils.printToFile(results);
         return combinedResults;
     }
-    parse(serviceName) {
+    parseTest(serviceName) {
         const cstNode = JP.parse(TestJavaStrings.LOGIN);
         var queryTypeArr = ['alluserServiceStepsSubTest'];
         let results = {};

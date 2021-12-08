@@ -13,7 +13,7 @@ export default class JParserTest {
         const cst = JP.parse(TestJavaStrings.CONTROLLER);
 
         var queryType = 'outwiredFields';
-        let jParser = new JParser();
+        let jParser = new JParser('outwiredFields', '');
         const exp = new JPLExpression(QUERIES[queryType], { outputName: queryType }).parse();
         let finalResults = jParser.getResults(cst, exp);
         if (!(finalResults && finalResults.length >= 8)) throw new Error(queryType + ' parsing failed!');

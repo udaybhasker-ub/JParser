@@ -29,23 +29,35 @@ export enum QUERIES {
     alluserServiceStepsSub = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
     serviceWithoutThisSubTest = `/methodDeclaration@/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /fqnOrRefTypePartFirst/Identifier:[image#componentInstance], /fqnOrRefTypePartRest/Identifier:[image#componentMethod]]`,
     alluserServiceStepsSubTest = `/methodDeclaration@/methodBody/block/blockStatements/blockStatement/expression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /primarySuffix~0/Identifier:[image#componentInstance], /primarySuffix~1/Identifier:[image#componentMethod]]`,
+    methodRequestMappings = `/methodDeclaration@/methodModifier/annotation[?{/At(image="@") && /typeName/Identifier(image="RequestMapping")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier[image#methodName], /elementValuePairList/elementValuePair[?{/Identifier(image="RequestMethod")}]:[/elementValue/elementValueArrayInitializer/elementValueList/elementValue~0/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier[image#method1]],/elementValuePairList/elementValuePair[?{/Identifier(image="RequestMethod")}]:[/elementValue/elementValueArrayInitializer/elementValueList/elementValue~1/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier[image#method2]]]`,
 };
 //
 export default class JParser {
     name: string;
     contentString: string;
+    test = false;
 
-    constructor(name, contentString) {
+    constructor(name, contentString, test?) {
         this.name = name;
+        this.test = test || false;
         this.contentString = contentString;
     }
     parse() {
-        //this.parseTest('userService');
         const cstNode = JP.parse(this.contentString);
         let combinedResults = {};
-        combinedResults = this.getAllServiceCalls(cstNode);
-        //Utils.printToFile(cstNode, this.name);
+        //combinedResults = this.getAllServiceCalls(cstNode);
+        combinedResults = this.getMethodRequestMappings(cstNode);
+        //if (this.test) Utils.printToFile(cstNode, this.name);
+        if (this.test) Utils.printToFile(cstNode, this.name + '_cst');
         return combinedResults;
+    }
+    getMethodRequestMappings(cstNode) {
+        let allAutowiredFields = {};
+        const requestsJPL = new JPLExpression(QUERIES['methodRequestMappings'], { outputName: 'methodRequestMappings' }).parse();
+        if (this.test) Utils.printToFile(requestsJPL, this.name + '_query');
+        allAutowiredFields = this.getResults(cstNode, requestsJPL);
+
+        return allAutowiredFields;
     }
     getAllServiceCalls(cstNode) {
         let combinedResults = {};
@@ -62,18 +74,17 @@ export default class JParser {
             let queryResults = [];
             queryTypeArr.forEach((queryType) => {
                 const query = this.getQuery(queryType, instanceName)
-                //Utils.printToFile(query, 'query');
+                if (this.test) Utils.printToFile(query, 'query');
                 let finalResults = this.getResults(cstNode, query);
-                //if (!serviceCalls[queryType]) serviceCalls[queryType] = [];
                 finalResults = [...new Map(finalResults.map(v => {
                     return [JSON.stringify([v.sourceMethod, v.componentInstance, v.componentMethod]), v]
                 })).values()];
 
-                queryResults.push({ queryName: queryType, results: finalResults });
+                //queryResults.push({ queryName: queryType, results: finalResults });
+                queryResults = [...queryResults, finalResults];
             });
             combinedResults[className] = queryResults;
         });
-        //Utils.printToFile(results);
         return combinedResults;
     }
     parseTest(serviceName) {

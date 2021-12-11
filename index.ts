@@ -1,6 +1,10 @@
 import JParser from "./src/JParser";
 import ProjectReader from "./src/ProjectReader";
 
-//new JParser();
-new ProjectReader();
+let reader = new ProjectReader('/Users/udusharl/myprojects/reader-java-test');
+reader.extract();
+/*reader.getResultsFromFile().then((results) => {
+    console.log('results from file');
+});*/
+
 

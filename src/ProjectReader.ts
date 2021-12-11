@@ -4,38 +4,51 @@ import Utils from './Utils';
 let path = require('path');
 
 export default class ProjectReader {
-    constructor() {
+    projectPath;
+    results;
+    testFile;
+
+    constructor(projectPath) {
+        this.projectPath = projectPath;
+    }
+    extract() {
         let startTime = new Date();
-        const projectPath = '/Users/udusharl/myprojects/reader-java-test';
-        let tokens = ['Controller', 'Service', 'DAO'];
-        let promises = tokens.map(token => { return this.getComponentResults(projectPath, token) });
-        Promise.all(promises).then(results => {
-            Utils.printToFile(results, 'combined');
+        let tokens = ['Controller'/*, 'Service', 'DAO'*/];
+        this.testFile = "ExtendedOPDSFeedController";
+        let promises = tokens.map(token => {
+            return this.getComponentResults(this.projectPath, token)
+        });
+        return Promise.all(promises).then(results => {
+            let finalResults = {};
+            tokens.forEach((token, index) => {
+                finalResults[token] = results[index];
+            });
+            Utils.printToFile(finalResults, 'combined');
             console.log('All Done!');
             var seconds = Math.floor((new Date().valueOf() - startTime.valueOf()) / 1000);
             var minutes = Math.floor(seconds / 60);
             let remSeconds = seconds % 60;
             console.log(`Total time taken: ${minutes}min(s) ${remSeconds}sec`);
+            return finalResults;
         });
     }
 
     getComponentResults(projectPath, token) {
         let controllerFiles = this.traverseDir(projectPath, token);
-        let startTime = new Date();
         console.log("Total " + token + " files found: " + Object.entries(controllerFiles).length);
         let promises = Object.entries(controllerFiles).map((entry, index) => {
             return new Promise((resolve, reject) => {
-                //if (index != 1) { resolve({fileName}); return; }
-                const fileName = entry[0], filePath = entry[1];
-                this.readFile(filePath, (content) => {
+                const fileName = entry[0];
+                let { type, path }: any = entry[1];
+
+                this.readFile(path, (content) => {
                     try {
-                        let results = new JParser(fileName, content).parse();
+                        let results = new JParser(fileName, content, this.testFile || false).parse();
                         console.log(index + '. ' + fileName + ' is done.');
-                        resolve({ fileName, results })
+                        resolve({ fileName, type, results })
                     } catch (error) {
                         console.error(index + '. ' + fileName + ' has errors: ', error.message);
-                        //console.error(error);
-                        resolve({ fileName });
+                        resolve({ fileName, type, results: [] });
                     }
                 }, (error) => {
                     reject(error);
@@ -45,21 +58,19 @@ export default class ProjectReader {
         return Promise.all(promises);
     }
 
-    traverseDir(dir, type?) {
+    traverseDir(dir, type) {
         let filePaths = {};
         const regex = new RegExp(`(.*)${type}\.java`, 'i');
         fs.readdirSync(dir).forEach(file => {
             let fileName = file;
             let fullPath = path.join(dir, file);
             if (fs.lstatSync(fullPath).isDirectory()) {
-                //console.log(fullPath);
                 let subFilePaths = this.traverseDir(fullPath, type)
                 filePaths = { ...filePaths, ...subFilePaths };
             } else {
                 let match = fullPath.match(regex);
-                if (match) {
-                    //console.log(fileName);
-                    filePaths[fileName.replace('.java', '')] = fullPath;
+                if (match && (!this.testFile || (this.testFile && fileName.indexOf(this.testFile) > -1))) {
+                    filePaths[fileName.replace('.java', '')] = { type, path: fullPath };
                 }
             }
         });
@@ -76,4 +87,15 @@ export default class ProjectReader {
         });
     }
 
+    getResultsFromFile() {
+        return new Promise((resolve, reject) => {
+            this.readFile('./devTesting/result_combined.json', (content) => {
+                content = JSON.parse(content);
+                resolve(content);
+            }, (error) => {
+                //reject(error);
+                console.log(error);
+            });
+        });
+    }
 }

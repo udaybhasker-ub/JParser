@@ -29,35 +29,58 @@ export enum QUERIES {
     alluserServiceStepsSub = `/methodBody/block/blockStatements/blockStatement/expressionStatement/statementExpression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[/primarySuffix~0/Identifier:[image#service], /primarySuffix~1/Identifier:[image#serviceMethod]]`,
     serviceWithoutThisSubTest = `/methodDeclaration@/methodBody/blockStatements/fqnOrRefType[/fqnOrRefTypePartFirst/Identifier?{(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /fqnOrRefTypePartFirst/Identifier:[image#componentInstance], /fqnOrRefTypePartRest/Identifier:[image#componentMethod]]`,
     alluserServiceStepsSubTest = `/methodDeclaration@/methodBody/block/blockStatements/blockStatement/expression/expression/primary[?{/primarySuffix~0/Identifier(image="@1")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#sourceMethod], /primarySuffix~0/Identifier:[image#componentInstance], /primarySuffix~1/Identifier:[image#componentMethod]]`,
-    methodRequestMappings = `/methodDeclaration@/methodModifier/annotation[?{/At(image="@") && /typeName/Identifier(image="RequestMapping")}]:[@methodDeclaration/methodHeader/methodDeclarator/Identifier[image#methodName], /elementValuePairList/elementValuePair[?{/Identifier(image="RequestMethod")}]:[/elementValue/elementValueArrayInitializer/elementValueList/elementValue~0/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier[image#method1]],/elementValuePairList/elementValuePair[?{/Identifier(image="RequestMethod")}]:[/elementValue/elementValueArrayInitializer/elementValueList/elementValue~1/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier[image#method2]]]`,
+    //methodRequestMappings = `/methodDeclaration@/methodModifier/annotation[?{/At(image="@") && /typeName/Identifier(image="RequestMapping")}]:[/@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#methodName], /elementValuePairList/elementValuePair[?{/Identifier(image="method")}]/elementValue~0/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#method1], /elementValuePairList/elementValuePair[?{/Identifier(image="method")}]/elementValue~1/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#method2]]`,
+    methodRequestMappings = `/methodDeclaration@/methodModifier/annotation[?{/At(image="@") && /typeName/Identifier(image="RequestMapping")}]:[/@methodDeclaration/methodHeader/methodDeclarator/Identifier:[image#methodName], /elementValuePairList/elementValuePair/elementValue/expression/primaryPrefix/literal/StringLiteral:[image#requestPath], /elementValuePairList/elementValuePair[?{/Identifier(image="method")}]/elementValue~0/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#method1], /elementValuePairList/elementValuePair[?{/Identifier(image="method")}]/elementValue~1/fqnOrRefTypePartRest/fqnOrRefTypePartCommon/Identifier:[image#method2]]`,
 };
 //
 export default class JParser {
     name: string;
     contentString: string;
     test = false;
+    isController = false;
 
-    constructor(name, contentString, test?) {
+    constructor(name, contentString, isController, test?) {
         this.name = name;
         this.test = test || false;
+        this.isController = isController;
         this.contentString = contentString;
     }
     parse() {
         const cstNode = JP.parse(this.contentString);
-        let combinedResults = {};
-        //combinedResults = this.getAllServiceCalls(cstNode);
-        combinedResults = this.getMethodRequestMappings(cstNode);
+        let componentCalls = {}, requestMappings = [];
+        try {
+            componentCalls = this.getAllServiceCalls(cstNode);
+        } catch (error) {
+            console.error(this.name + ' has errors : getAllServiceCalls: ', error.message);
+        }
+
+        try {
+            if (this.isController) requestMappings = this.getMethodRequestMappings(cstNode);
+        } catch (error) {
+            console.error(this.name + ' has errors : requestMappings: ', error.message);
+        }
         //if (this.test) Utils.printToFile(cstNode, this.name);
         if (this.test) Utils.printToFile(cstNode, this.name + '_cst');
-        return combinedResults;
+        return { componentCalls, requestMappings };
     }
     getMethodRequestMappings(cstNode) {
-        let allAutowiredFields = {};
+        let requestMappings = [];
         const requestsJPL = new JPLExpression(QUERIES['methodRequestMappings'], { outputName: 'methodRequestMappings' }).parse();
         if (this.test) Utils.printToFile(requestsJPL, this.name + '_query');
-        allAutowiredFields = this.getResults(cstNode, requestsJPL);
-
-        return allAutowiredFields;
+        requestMappings = this.getResults(cstNode, requestsJPL);
+        requestMappings.map(element => {
+            let methods = [];
+            if (element.method1 === element.method2) {
+                methods.push(element.method1);
+            } else {
+                methods.push(element.method1);
+                methods.push(element.method2);
+            }
+            delete element.method1;
+            delete element.method2;
+            element['methods'] = methods;
+        });
+        return requestMappings;
     }
     getAllServiceCalls(cstNode) {
         let combinedResults = {};
@@ -81,9 +104,9 @@ export default class JParser {
                 })).values()];
 
                 //queryResults.push({ queryName: queryType, results: finalResults });
-                queryResults = [...queryResults, finalResults];
+                queryResults = [...queryResults, ...finalResults];
             });
-            combinedResults[className] = queryResults;
+            if (queryResults && queryResults.length > 0) combinedResults[className] = queryResults;
         });
         return combinedResults;
     }

@@ -40,7 +40,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                 parent = ctx;
             }
 
-            if (isTrailingStep && this.collectorName === queryExpression.outputAt) {
+            if (isTrailingStep && this.collectorName === queryExpression.outputAt && queryExpression.trailing.outputs.length < 1) {
                 this.results = ctx;
                 return;
             }
@@ -56,10 +56,10 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                     aliasParents = aliasParents || {};
                     aliasParents[this.collectorName] = ctx;
                 }
-                if (isTrailingOutput && this.collectorName === traceReset) {
+                if ((isTrailingOutput || isTrailingStep) && this.collectorName === traceReset) {
                     trace = '';
                 }
-                if (this.queryExpression && this.collectorName === this.queryExpression.returnAt) {
+                if (this.queryExpression && (this.collectorName === this.queryExpression.returnAt)) {
                     parent = ctx;
                     finalResults['counters'] = finalResults['counters'] || {};
                     let counter = finalResults['counters'][this.collectorName] || 0;
@@ -71,7 +71,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                 } else {
                     trace = (trace ? trace + '>' : '') + this.collectorName;
                 }
-                subColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent, aliasParents, trace, traceReset, path, isTrailingOutput });
+                subColl.visit({ name: this.collectorName, children: ctx }, { parent, returningParent, aliasParents, trace, traceReset, path, isTrailingOutput, isTrailingStep });
             } else if (lastItem === this.collectorName) {
                 var matchC = 0;
                 let blockConditions: IConditionalBlock[] = [];
@@ -108,19 +108,30 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
 
                 if (matchedConditionCount === blockConditions.length) {
                     let continueToFilter = false;
+                    let allSteps = [...queryExpression.guiding.steps, ...queryExpression.trailing.steps];
                     if (conditionalBlock) {
                         continueToFilter = (this.collectorName === conditionalBlock.steps[conditionalBlock.steps.length - 1]);
                     } else if (queryExpression.condition && queryExpression.condition.steps.length) {
                         continueToFilter = (this.collectorName === queryExpression.condition.evaluateAt);
+                    } else if (isTrailingStep && this.collectorName === allSteps[allSteps.length - 1] && queryExpression.trailing.outputs.length > 0) {
+                        continueToFilter = true;
                     } else {
                         continueToFilter = (this.collectorName === queryExpression.returnAt);
                     }
                     if (continueToFilter) {
                         let finals = {};
-                        if (queryExpression.trailing && queryExpression.trailing.steps.length) {
+                        if (!isTrailingStep && queryExpression.trailing && queryExpression.trailing.steps.length) {
                             let sliceIndex = queryExpression.trailing.steps.length > 1 ? 1 : 0;
-                            let trailingStepColl = new DynamicCollector(queryExpression.trailing.steps.slice(sliceIndex), queryExpression, finalResults);
-                            trailingStepColl.visit({ name: queryExpression.returnAt, children: parent }, { parent, returningParent, isTrailingStep: true });
+                            let newSteps = queryExpression.trailing.steps.slice(sliceIndex);
+                            let trailingStepColl = new DynamicCollector(newSteps, queryExpression, finalResults);
+                            let matchingIndices = [];
+                            queryExpression.trailing.steps.forEach((output) => {
+                                let parts = output.split('~');
+                                if (parts.length > 1) {
+                                    matchingIndices.push({ name: parts[0], index: parts[1] });
+                                }
+                            });
+                            trailingStepColl.visit({ name: this.collectorName, children: parent }, { parent, returningParent, traceReset: newSteps[0], trace: queryExpression.trailing.steps.join('>'), isTrailingStep: true, matchingIndices });
                             parent = trailingStepColl.results;
                             if (!queryExpression.trailing.outputs.length) {
                                 finalResults['final'] = [...finalResults['final'], ...[parent]];
@@ -151,7 +162,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                                         outputsColl = new DynamicCollector(newSteps.slice(1), output, finalResults);
                                         newSteps = newSteps.slice(1);
                                     } else {
-                                        parent = parentCache[collectorName];
+                                        parent = parentCache[collectorName] || parent;
                                         returningParent = parent;
                                     }
                                     let matchingIndices = [];
@@ -170,7 +181,10 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
                                     if (pathMatched) {
                                         var parts = output.split('#');
 
-                                        finals[parts[1] ? parts[1] : output] = ctx[parts[0]];
+                                        const val = ctx[parts[0]];
+                                        if (val) {
+                                            finals[parts[1] ? parts[1] : output] = val;
+                                        }
                                         if (queryExpression.trailing.outputs.length === 1 && !returningParent) {
                                             returningParent = ctx;
                                             returningParent.index = parentIndex;

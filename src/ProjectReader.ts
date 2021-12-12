@@ -13,8 +13,8 @@ export default class ProjectReader {
     }
     extract() {
         let startTime = new Date();
-        let tokens = ['Controller'/*, 'Service', 'DAO'*/];
-        this.testFile = "ExtendedOPDSFeedController";
+        let tokens = ['Controller', 'Service', 'DAO'];
+        //this.testFile = "BookshelfController";
         let promises = tokens.map(token => {
             return this.getComponentResults(this.projectPath, token)
         });
@@ -43,12 +43,13 @@ export default class ProjectReader {
 
                 this.readFile(path, (content) => {
                     try {
-                        let results = new JParser(fileName, content, this.testFile || false).parse();
+                        let results = new JParser(fileName, content, token.toLowerCase().indexOf('controller') > -1, this.testFile || false).parse();
                         console.log(index + '. ' + fileName + ' is done.');
-                        resolve({ fileName, type, results })
+                        resolve({ fileName, type, ...results })
+                        //resolve({ ...{ fileName, type }, ...results })
                     } catch (error) {
                         console.error(index + '. ' + fileName + ' has errors: ', error.message);
-                        resolve({ fileName, type, results: [] });
+                        resolve({ fileName, type });
                     }
                 }, (error) => {
                     reject(error);

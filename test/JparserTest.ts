@@ -1,11 +1,11 @@
-import JParser, { QUERIES } from '../src/JParser';
+import { ComponentParser, Queries } from '../src/ComponentParser';
 import * as JP from "java-parser";
-import TestJavaStrings from '../src/TestJavaStrings';
+import TestJavaStrings from '../devTesting/TestJavaStrings';
 import Utils from '../src/Utils';
 import JPLExpression from "../src/models/JPLExpression";
 import { DynamicCollector } from '../src/DynamicCollector';
 
-export default class JParserTest {
+export default class JavaFileParserTest {
     constructor() {
         this.outwiredFieldsTest();
     }
@@ -13,9 +13,9 @@ export default class JParserTest {
         const cst = JP.parse(TestJavaStrings.CONTROLLER);
 
         var queryType = 'outwiredFields';
-        let jParser = new JParser('outwiredFields', '');
-        const exp = new JPLExpression(QUERIES[queryType], { outputName: queryType }).parse();
-        let finalResults = jParser.getResults(cst, exp);
+        let javaFileParser = new ComponentParser('outwiredFields', '');
+        const exp = new JPLExpression(Queries[queryType], { outputName: queryType }).parse();
+        let finalResults = javaFileParser.getResults(cst, exp);
         if (!(finalResults && finalResults.length >= 8)) throw new Error(queryType + ' parsing failed!');
     }
 

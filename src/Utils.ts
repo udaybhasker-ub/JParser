@@ -15,12 +15,5 @@ export default {
         fname = 'devTesting/result_' + fname + '.json';
         fs.writeFileSync(fname, str);
         console.log('Written to ' + fname);
-    },
-    mergeArrays(arr1, arr2) {
-        if (!arr1) arr1 = [];
-        if (!arr2) arr2 = [];
-
-        arr1 = [...arr1, ...arr2];
-        return arr1;
     }
 }

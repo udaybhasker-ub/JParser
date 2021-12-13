@@ -1,0 +1,120 @@
+begin User, NewAccountController, AccountService, EbUserService, UserSessionService, IPropertyMessageService, ChannelService, ServletContext, AuthenticationService, DemographicService, LibrianAlertService, ChannelDAO, ContentDataCacheService, ContentDataCacheService, AccountDAO, DemographicsServiceHelper, AccountDAO, DemographicsServiceHelper, PatronAppRegistry, PatronAppRegistry, PatronAppRegistry, IEmailService, ChannelService, AccountDAO, PatronAppRegistry, PatronAppRegistry, PatronAppRegistry, IEmailService, ChannelService, AccountDAO, AppDataStorageService
+ note over NewAccountController:newAccount
+User -> NewAccountController : GET-"**/newAccount.action"
+note over ChannelService:getChannelByName
+User -> NewAccountController : GET-"**/newAccount.action"
+NewAccountController -> ChannelService : getChannelByName()
+ChannelService -> ChannelDAO : geChannelByName()
+
+ChannelService -> ContentDataCacheService : get()
+
+ChannelService -> ContentDataCacheService : set()
+NewAccountController -> ServletContext : getContextPath()
+NewAccountController -> ServletContext : ServerMessage()
+NewAccountController -> AuthenticationService : accountCreateType()
+
+note over NewAccountController:newAccountRequest
+User -> NewAccountController : POST-"**/newAccountRequest.json"
+note over EbUserService:updateLastLoginDate
+User -> NewAccountController : POST-"**/newAccountRequest.json"
+NewAccountController -> EbUserService : updateLastLoginDate()
+EbUserService -> AccountDAO : updateUserLastLoginDate()
+note over DemographicService:addDemographics
+User -> NewAccountController : POST-"**/newAccountRequest.json"
+note over EbUserService:updateLastLoginDate
+User -> NewAccountController : POST-"**/newAccountRequest.json"
+NewAccountController -> EbUserService : updateLastLoginDate()
+EbUserService -> AccountDAO : updateUserLastLoginDate()
+NewAccountController -> DemographicService : addDemographics()
+DemographicService -> DemographicsServiceHelper : addDemographics()
+
+note over NewAccountController:newAccountAction
+User -> NewAccountController : POST-"**/newAccount.action"
+note over EbUserService:updateLastLoginDate
+User -> NewAccountController : POST-"**/newAccount.action"
+NewAccountController -> EbUserService : updateLastLoginDate()
+EbUserService -> AccountDAO : updateUserLastLoginDate()
+note over DemographicService:addDemographics
+User -> NewAccountController : POST-"**/newAccount.action"
+note over EbUserService:updateLastLoginDate
+User -> NewAccountController : POST-"**/newAccount.action"
+NewAccountController -> EbUserService : updateLastLoginDate()
+EbUserService -> AccountDAO : updateUserLastLoginDate()
+NewAccountController -> DemographicService : addDemographics()
+DemographicService -> DemographicsServiceHelper : addDemographics()
+
+note over NewAccountController:createNewUser
+note over AccountService:sendNewAccountEmail
+NewAccountController -> AccountService : sendNewAccountEmail()
+AccountService -> PatronAppRegistry : getFullHomePagePath()
+
+AccountService -> PatronAppRegistry : getFullAuthAppPath()
+
+AccountService -> PatronAppRegistry : EmailContants()
+
+AccountService -> IEmailService : sendPqEmail()
+
+AccountService -> ChannelService : getChannelCustomData()
+note over EbUserService:saveUser
+note over AccountService:sendNewAccountEmail
+NewAccountController -> AccountService : sendNewAccountEmail()
+AccountService -> PatronAppRegistry : getFullHomePagePath()
+
+AccountService -> PatronAppRegistry : getFullAuthAppPath()
+
+AccountService -> PatronAppRegistry : EmailContants()
+
+AccountService -> IEmailService : sendPqEmail()
+
+AccountService -> ChannelService : getChannelCustomData()
+NewAccountController -> EbUserService : saveUser()
+EbUserService -> AccountDAO : saveUser()
+note over LibrianAlertService:sendNewAccountEmail
+note over AccountService:sendNewAccountEmail
+NewAccountController -> AccountService : sendNewAccountEmail()
+AccountService -> PatronAppRegistry : getFullHomePagePath()
+
+AccountService -> PatronAppRegistry : getFullAuthAppPath()
+
+AccountService -> PatronAppRegistry : EmailContants()
+
+AccountService -> IEmailService : sendPqEmail()
+
+AccountService -> ChannelService : getChannelCustomData()
+note over EbUserService:saveUser
+note over AccountService:sendNewAccountEmail
+NewAccountController -> AccountService : sendNewAccountEmail()
+AccountService -> PatronAppRegistry : getFullHomePagePath()
+
+AccountService -> PatronAppRegistry : getFullAuthAppPath()
+
+AccountService -> PatronAppRegistry : EmailContants()
+
+AccountService -> IEmailService : sendPqEmail()
+
+AccountService -> ChannelService : getChannelCustomData()
+NewAccountController -> EbUserService : saveUser()
+EbUserService -> AccountDAO : saveUser()
+NewAccountController -> LibrianAlertService : sendNewAccountEmail()
+LibrianAlertService -> PatronAppRegistry : getFullAuthAppPath()
+
+LibrianAlertService -> PatronAppRegistry : getFullHomePagePath()
+
+LibrianAlertService -> PatronAppRegistry : EmailContants()
+
+LibrianAlertService -> IEmailService : sendPqEmail()
+
+LibrianAlertService -> ChannelService : getChannelByName()
+
+note over NewAccountController:validateUserParams
+note over EbUserService:getUserByNameOrEmail
+NewAccountController -> EbUserService : getUserByNameOrEmail()
+EbUserService -> AccountDAO : getUserByNameOrEmail()
+
+note over NewAccountController:updateUserSession
+note over UserSessionService:updateSession
+NewAccountController -> UserSessionService : updateSession()
+UserSessionService -> AppDataStorageService : set()
+
+note over NewAccountController:getErrorMap
+NewAccountController -> IPropertyMessageService : populateErrorMessageMap()

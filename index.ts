@@ -1,11 +1,13 @@
+import CreateSequenceDiagram from "./src/CreateSequenceDiagram";
 import JParser from "./src/JParser";
-import ProjectReader from "./src/ProjectReader";
 
 //let reader = new ProjectReader('/Users/udusharl/myprojects/reader-java-test');
-let reader = new ProjectReader('/Users/udusharl/myprojects/EBC-patron-dcp2-test');
-//reader.extract();
-reader.getResultsFromFile().then((results) => {
+//let javaParser = new JParser('/Users/udusharl/myprojects/EBC-patron-dcp2-test', { testFileName: "SearchController", showLogs: true });
+//javaParser.extract();
+/*javaParser.getResultsFromFile().then((results) => {
     console.log('results from file');
-});
-
+    let seq = new CreateSequenceDiagram(results);
+    seq.generateTxtFile();
+});*/
+export { default as JParser } from './src/JParser';
 

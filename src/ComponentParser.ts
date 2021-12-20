@@ -31,13 +31,13 @@ export class ComponentParser {
         try {
             componentCalls = this.getAllServiceCalls(cstNode);
         } catch (error) {
-            errors.push(this.name + ' has errors : getAllServiceCalls: ', error.message);
+            errors.push(this.name + ' has errors : getAllServiceCalls: ', error['message']);
         }
 
         try {
             if (this.options && this.options.isController) requestMappings = this.getMethodRequestMappings(cstNode);
         } catch (error) {
-            errors.push(this.name + ' has errors : requestMappings: ', error.message);
+            errors.push(this.name + ' has errors : requestMappings: ', error['message']);
         }
         //if (this.test) Utils.printToFile(cstNode, this.name);
         if (this.test) Utils.printToFile(cstNode, this.name + '_cst');

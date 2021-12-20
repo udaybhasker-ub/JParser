@@ -247,7 +247,7 @@ export class DynamicCollector extends JP.BaseJavaCstVisitorWithDefaults {
         return true;
     }
 
-    visit(ctx, param?) {
+    override visit(ctx, param?) {
         super.visit(ctx, param);
         return this.results;
     }

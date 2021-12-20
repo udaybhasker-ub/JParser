@@ -54,8 +54,8 @@ export default class JParser {
                         resolve({ fileName, type, ...results })
                         //resolve({ ...{ fileName, type }, ...results })
                     } catch (error) {
-                        if (this.showLogs) console.error(index + '. ' + fileName + ' has errors: ', error.message);
-                        resolve({ fileName, type, errors: [error.message] });
+                        if (this.showLogs) console.error(index + '. ' + fileName + ' has errors: ', error['message']);
+                        resolve({ fileName, type, errors: [error['message']] });
                     }
                 }, (error) => {
                     reject(error);
@@ -103,7 +103,7 @@ export default class JParser {
                 content = JSON.parse(content);
                 resolve(content);
             }, (error) => {
-                console.error('Error occured reading cache file: ' + error.message);
+                console.error('Error occured reading cache file: ' + error['message']);
             });
         });
     }

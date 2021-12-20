@@ -9,6 +9,7 @@
     "keywords": [],
     "author": "",
     "license": "ISC",
+    "type": "commonjs",
     "devDependencies": {
         "@types/webpack": "^4.4.32",
         "clean-webpack-plugin": "^3.0.0",

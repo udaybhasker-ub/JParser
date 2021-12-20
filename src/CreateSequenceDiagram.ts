@@ -89,16 +89,6 @@ export default class CreateSequenceDiagram {
         });
         return { mappings, lanes };
     }
-    formatMappingText(mapping) {
-        return mapping.source + ' -> ' + mapping.destination + ' : ' + mapping.comment;
-    }
-    formatMapping(source, destination, comment) {
-        return source + ' -> ' + destination + ' : ' + comment;
-    }
-    formatRequestMapping(controllerName, reqMapping) {
-        return 'User -> ' + controllerName + ' : ' + reqMapping.methods.join(',') + '-' + reqMapping.requestPath;
-    }
-
     writeToTxtFile(contentString) {
         fs.writeFile(path.resolve("test", "sequence_data.txt"), contentString, function (err) {
             if (err) {

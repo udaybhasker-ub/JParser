@@ -1,5 +1,5 @@
 import * as JP from "java-parser";
-import TestJavaStrings from '../devTesting/TestJavaStrings';
+/*import TestJavaStrings from '../devTesting/TestJavaStrings';*/
 import { DynamicCollector } from './DynamicCollector';
 import Utils from './Utils';
 import JPLExpression from "./models/JPLExpression";
@@ -90,7 +90,7 @@ export class ComponentParser {
         });
         return combinedResults;
     }
-    parseTest(serviceName) {
+    /*parseTest(serviceName) {
         const cstNode = JP.parse(TestJavaStrings.LOGIN);
         var queryTypeArr = ['serviceWithoutThis'];
         let results = {};
@@ -102,7 +102,7 @@ export class ComponentParser {
             results[queryType] = { ...finalResults };
         });
         Utils.printToFile(results);
-    }
+    }*/
     getResults(cst, query) {
         let finalResults = [];
         var allSteps = [...query.guiding.steps, ...query.condition.steps];

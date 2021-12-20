@@ -1,19 +1,22 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
     "noImplicitAny": false,
     "removeComments": true,
     "preserveConstEnums": true,
     "sourceMap": true,
-    "declaration": true,
+    "target": "ES2015",
+    "module": "ES2020",
+    "strict": true,
+    "strictNullChecks": false,
+    "esModuleInterop": true,
     "moduleResolution": "node",
-    "outDir": "./dist",
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./lib/esm",
     "rootDir": ".",
     "downlevelIteration": true
   },
   "include": [
     "src",
-    "index.ts",
     "devTesting/TestJavaStrings.ts"
   ]
 }

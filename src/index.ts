@@ -1,2 +1,5 @@
-export { default as JParser } from './JParser';
+import JParser from './JParser'
+import SequenceDiagram from './SequenceDiagram';
+
+export { JParser, SequenceDiagram };
 

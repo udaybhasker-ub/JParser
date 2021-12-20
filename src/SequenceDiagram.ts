@@ -20,14 +20,14 @@ class Mapping {
     }
 }
 
-export default class CreateSequenceDiagram {
+export default class SequenceDiagram {
     data;
 
     constructor(data) {
         this.data = data;
     }
 
-    generateTxtFile() {
+    getFileData() {
         let controllers = this.data.Controller;
         let userCntrlDestMethodGrp = {};
         let controllerServiceMap = [];
@@ -69,9 +69,9 @@ export default class CreateSequenceDiagram {
             if ((<any[]>methodItems).length > 0) methodText = 'note over ' + controllerFilter + ':' + methodName + '\n' + methodText
             return methodText;
         });
-        this.writeToTxtFile('begin ' + allLanes.join(', ') + '\n ' + results.join('\n'));
+        return 'begin ' + allLanes.join(', ') + '\n ' + results.join('\n');
     }
-    findServiceMethodDaoCalls(serviceName, methodName) {
+    private findServiceMethodDaoCalls(serviceName, methodName) {
         let mappings = [];
         let lanes = [];
         this.data['Service'].forEach(service => {
@@ -89,8 +89,9 @@ export default class CreateSequenceDiagram {
         });
         return { mappings, lanes };
     }
-    writeToTxtFile(contentString) {
-        fs.writeFile(path.resolve("test", "sequence_data.txt"), contentString, function (err) {
+    writeToTxtFile(fileName) {
+        //path.resolve("test", "sequence_data.txt")
+        fs.writeFile(fileName, this.getFileData(), function (err) {
             if (err) {
                 return console.log(err);
             }

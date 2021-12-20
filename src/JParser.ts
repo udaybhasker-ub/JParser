@@ -8,11 +8,13 @@ export default class JParser {
     results;
     testFileName;
     showLogs;
+    writeToFile;
 
     constructor(projectPath, options?) {
         this.projectPath = projectPath;
         this.testFileName = options && options.testFileName;
         this.showLogs = options && options.showLogs;
+        this.writeToFile = options && options.writeToFile;
     }
     extract() {
         let startTime = new Date();
@@ -25,7 +27,7 @@ export default class JParser {
             tokens.forEach((token, index) => {
                 finalResults[token] = results[index];
             });
-            if (this.testFileName) Utils.printToFile(finalResults, 'combined');
+            if (this.writeToFile) Utils.printToFile(finalResults, 'combined');
             if (this.showLogs) console.log('All Done!');
             var seconds = Math.floor((new Date().valueOf() - startTime.valueOf()) / 1000);
             var minutes = Math.floor(seconds / 60);
@@ -48,6 +50,8 @@ export default class JParser {
                         let options = {
                             test: this.testFileName || false,
                             isController: token.toLowerCase().indexOf('controller') > -1,
+                            showLogs: this.showLogs,
+                            writeToFile: this.writeToFile
                         }
                         let results = new ComponentParser(fileName, content, options).parse();
                         if (this.showLogs) console.log(index + '. ' + fileName + ' is done.');

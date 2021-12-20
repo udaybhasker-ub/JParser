@@ -1,5 +1,4 @@
 import * as JP from "java-parser";
-/*import TestJavaStrings from '../devTesting/TestJavaStrings';*/
 import { DynamicCollector } from './DynamicCollector';
 import Utils from './Utils';
 import JPLExpression from "./models/JPLExpression";
@@ -17,12 +16,10 @@ export class ComponentParser {
     name: string;
     contentString: string;
     options;
-    test = false;
 
     constructor(name, contentString, options?) {
         this.name = name;
         this.options = options;
-        this.test = (options && options.test) || false;
         this.contentString = contentString;
     }
     parse() {
@@ -39,14 +36,13 @@ export class ComponentParser {
         } catch (error) {
             errors.push(this.name + ' has errors : requestMappings: ', error['message']);
         }
-        //if (this.test) Utils.printToFile(cstNode, this.name);
-        if (this.test) Utils.printToFile(cstNode, this.name + '_cst');
+        if (this.options && this.options.writeToFile) Utils.printToFile(cstNode, this.name + '_cst');
         return { componentCalls, requestMappings, errors };
     }
     getMethodRequestMappings(cstNode) {
         let requestMappings = [];
         const requestsJPL = new JPLExpression(Queries['methodRequestMappings'], { outputName: 'methodRequestMappings' }).parse();
-        if (this.test) Utils.printToFile(requestsJPL, this.name + '_query');
+        if (this.options && this.options.writeToFile) Utils.printToFile(requestsJPL, this.name + '_query');
         requestMappings = this.getResults(cstNode, requestsJPL);
         requestMappings.map(element => {
             let methods = [];
@@ -77,32 +73,17 @@ export class ComponentParser {
             let queryResults = [];
             queryTypeArr.forEach((queryType) => {
                 const query = this.getQuery(queryType, instanceName)
-                if (this.test) Utils.printToFile(query, 'query');
+                if (this.options && this.options.writeToFile) Utils.printToFile(query, 'query');
                 let finalResults = this.getResults(cstNode, query);
                 finalResults = [...new Map(finalResults.map(v => {
                     return [JSON.stringify([v.sourceMethod, v.componentInstance, v.componentMethod]), v]
                 })).values()];
-
-                //queryResults.push({ queryName: queryType, results: finalResults });
                 queryResults = [...queryResults, ...finalResults];
             });
             if (queryResults && queryResults.length > 0) combinedResults[className] = queryResults;
         });
         return combinedResults;
     }
-    /*parseTest(serviceName) {
-        const cstNode = JP.parse(TestJavaStrings.LOGIN);
-        var queryTypeArr = ['serviceWithoutThis'];
-        let results = {};
-        queryTypeArr.forEach((queryType) => {
-            const query = this.getQuery(queryType, serviceName);
-            Utils.printToFile(query, 'query');
-            let finalResults = this.getResults(cstNode, query);
-            if (!results[queryType]) results[queryType] = [];
-            results[queryType] = { ...finalResults };
-        });
-        Utils.printToFile(results);
-    }*/
     getResults(cst, query) {
         let finalResults = [];
         var allSteps = [...query.guiding.steps, ...query.condition.steps];
